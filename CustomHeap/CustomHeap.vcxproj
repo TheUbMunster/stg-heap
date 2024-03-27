@@ -133,6 +133,7 @@
     <ClCompile Include="Testing.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="Debug.hpp" />
     <ClInclude Include="Heap.hpp" />
     <ClInclude Include="HeapStructures.hpp" />
     <ClInclude Include="Memory.hpp" />

@@ -60,5 +60,7 @@ HeapNodeHeader* PageHeader::immediateFirstNode()
 HeapNodeHeader* PageHeader::immediateLastNode()
 {
 	//TODO: fix this (perhaps?)
-	return ((HeapNodeFooter*)((((char*)this) + this->sizeBytes) - sizeof(HeapNodeFooter)))->header;
+	char* addr = ((((char*)this) + this->sizeBytes) - sizeof(HeapNodeFooter));
+	addr -= (((size_t)addr) % 16 == 8) ? 0 : 8;
+	return ((HeapNodeFooter*)addr)->header;
 }

@@ -1,12 +1,8 @@
 #include "Heap.hpp"
 #include "Memory.hpp"
+#include "Debug.hpp"
 #include <stdio.h>
 #include <stdlib.h>
-
-#define COHERENCY_CHECK_DEBUG
-//whenever doing stuff, clean up and zero out the old memory TODO
-#define CLEANUP_DEBUG
-
 
 STGHeap::STGHeap()
 {
@@ -48,21 +44,16 @@ PageHeader* STGHeap::create_and_init_page(size_t minSizeBytes, bool overheadAlre
 	//3. declare the body of the page to be one giant free block
 	HeapNodeHeader* n = ph->immediateFirstNode();
 	n->setCurrentFree(true);
-	size_t largestPossibleSize = minSizeBytes - overheadSize;
-	largestPossibleSize = largestPossibleSize - (largestPossibleSize % 16); //even though this footer will always be last, make sure it's aligned as though it hypothetically might not be.
-	n->setSize(largestPossibleSize); //the whole thing
+	size_t largestPossibleNodeSize = minSizeBytes - overheadSize;
+	largestPossibleNodeSize = largestPossibleNodeSize - (largestPossibleNodeSize % 16); //even though this footer will always be last, make sure it's aligned as though it hypothetically might not be.
+	n->setSize(largestPossibleNodeSize); //the whole thing
 	n->myFooter()->header = n;
 	//4. assign head and tail of EFL
 	ph->efl_head = ph->efl_tail = n;
 	//5. sink/swim in page directory.
 	//note: needs to handle cases where head/tails are null in pd dll.
-#ifdef COHERENCY_CHECK_DEBUG
-	if ((pd_head == nullptr && pd_tail != nullptr) || (pd_head != nullptr && pd_tail == nullptr))
-	{
-		fprintf(stderr, "Failed coherency, page directory had a head but no tail or vice versa.");
-		exit(-1);
-	}
-#endif
+	CHECK((pd_head == nullptr && pd_tail != nullptr) || (pd_head != nullptr && pd_tail == nullptr), 
+		"Failed coherency, page directory had a head but no tail or vice versa.");
 	if (pd_head == nullptr)
 		pd_head = pd_tail = ph;
 	else
@@ -85,8 +76,7 @@ PageHeader* STGHeap::create_and_init_page(size_t minSizeBytes, bool overheadAlre
 		}
 		else
 		{
-			fprintf(stderr, "Non edge-case page size (sink/swim in pd dll); Not yet implemented.");
-			exit(-1);
+			CHECK(true, "Non edge-case page size (sink/swim in pd dll); Not yet implemented.");
 			//TODO:
 			size_t td = hs - minSizeBytes, bd = minSizeBytes - ts;
 			if (td > bd)
@@ -99,6 +89,7 @@ PageHeader* STGHeap::create_and_init_page(size_t minSizeBytes, bool overheadAlre
 			}
 		}
 	}
+	return ph;
 }
 
 inline static void exciseEFL(HeapNodeHeader* toRemove)
@@ -431,307 +422,92 @@ void* STGHeap::stg_malloc(size_t size)
 
 void STGHeap::stg_free(void* p)
 {
-	//find the page we belong to:
+	//1. find the page we belong to 
 	//start from a page, then check if "p" lies within the address range of that page, if not, iterate and check the next page etc.
 	PageHeader* page = nullptr;
 	{
 		PageHeader* currentPage = pd_head;
-		do
+		while (currentPage != nullptr)
 		{
 			//check if it's in the current page.
 			//pointer lies past the page header, but before the end of the page
 			//mins sizeof heapnodefooter *ONLY* because p points to the body, not the header.
-			if ((currentPage + 1) <= p && p < (((char*)currentPage) + currentPage->sizeBytes - sizeof(HeapNodeFooter)))
+			if ((currentPage + 1) <= p && p < (((char*)currentPage) + currentPage->sizeBytes))
 			{
 				page = currentPage;
 				break;
 			}
 			//last step; step forward
 			currentPage = currentPage->next; //this is a dll, take advantage of that somehow?
-		} while (currentPage != nullptr);
-#ifdef COHERENCY_CHECK_DEBUG
-		if (page == nullptr)
-		{
-			//panic, couldn't find the page. User gave bad ptr?
-			fprintf(stderr, "Failed coherency, couldn't find the page that %p belongs to, stg_free passed bad ptr?", p);
-			exit(-1);
 		}
-#endif
+		CHECK(page == nullptr, "Failed coherency, couldn't find the page that the ptr belongs to, stg_free passed bad ptr?");
 	}
-	//minus sizeof because the pointer that we gave via stg_malloc (and ultimately given back to us) points to the BODY, not the header.
-	HeapNodeHeader *currentNode = (HeapNodeHeader*)(((char*)p) - (sizeof(HeapNodeHeader) - sizeof(HeapNodeHeader::HeapNodeMandatoryBody))), *prevNode, *nextNode;
-	HeapNodeFooter *currentFooter = currentNode->myFooter(), *prevFooter, *nextFooter;
-	//these are so that we know if we even *have* an immediate prev/next neighbor
-	bool prevNeighborExists = !(page->immediateFirstNode() == currentNode), nextNeighborExists = !(page->immediateLastNode() == currentNode);
-	bool prevFree = prevNeighborExists ? currentNode->isImmediatePreviousFree() : false, nextFree = nextNeighborExists ? currentNode->isImmediateNextFree() : false;
-	//encode in state because I don't want a giant nested if statement
-	char state = (prevFree ? 1 : 0) | (nextFree ? 2 : 0) | (prevNeighborExists ? 4 : 0) | (nextNeighborExists ? 8 : 0);
-	switch (state)
+	//2. mark free and coalesce
+	HeapNodeHeader *currentNode = (HeapNodeHeader*)(((char*)p) - (sizeof(HeapNodeHeader) - sizeof(HeapNodeHeader::HeapNodeMandatoryBody))), *prevNode = nullptr, *nextNode = nullptr;
+	//(prev/next != null means it is free and needs to coalesce, prev/next == null means either not free or DNE).
+	if (page->immediateFirstNode() != currentNode)
 	{
-	case 0: //I am the one and only in the entire page(s)
-	case 1:
-	case 2:
-	case 3: //prevFree/nextFree options N/A
-		{
-			//Free myself, make me the only entry in the EFL. I am the only node in the page(s)
-			currentNode->setCurrentFree(true);
-			currentNode->content.efl.prev = nullptr;
-			currentNode->content.efl.next = nullptr;
-			page->efl_head = currentNode;
-			page->efl_tail = currentNode;
-			//change this code so that it still uses sink swim for uniformity?
-		}
-		break;
-
-	case 5: //prev exists, next does not.
-	case 7: //prev exists, next does not.
-		{
-			prevNode = currentNode->immediatePrevNeighbor();
-			prevFooter = prevNode->myFooter();
-			//next DNE, prev is free
-			//ph: update size
-			//pf: ignore
-			//ch: ignore
-			//cf: update ptr
-			//swim
-
-			//update size
-			prevNode->setSize(prevNode->size() +
-				sizeof(HeapNodeFooter) +
-				(sizeof(HeapNodeHeader) - sizeof(HeapNodeHeader::HeapNodeMandatoryBody)) +
-				currentNode->size());
-#ifdef COHERENCY_CHECK_DEBUG
-			size_t diff = (((char*)currentFooter) - ((char*)prevNode)) - (sizeof(HeapNodeHeader) - sizeof(HeapNodeHeader::HeapNodeMandatoryBody));
-			if (prevNode->size() != diff)
-			{
-				fprintf(stderr, "Failed coherency (cases 5/7), coalesce size calculation is wrong?");
-				exit(-1);
-			}
-#endif
-			//update ptr
-			currentFooter->header = prevNode;
-			//swim ourselves in EFL
-			swim(prevNode, page); //swim does the actual adding to the EFL
-		}
-		break; //2. prev is free, next is not (coalesce this one in with the previous one, swim it up in efl).
-		       //1. both are free (coalesce next and this one into previous, swim it up in efl).
-
-	case 4: //prev exists, next does not.
-	case 6: //prev exists, next does not.
-		{
-			//next DNE, prev is non-free
-			//ph: ignore
-			//pf: ignore
-			//ch: mark free
-			//cf: ignore
-			//sink or swim
-			currentNode->setCurrentFree(true);
-			currentNode->content.efl.prev = nullptr;
-			currentNode->content.efl.next = nullptr;
-			//insert efl sink/swim
-			sink_or_swim(currentNode, page); //sink/swim does the actual adding to the EFL
-		}
-		break; //4. prev and next are both non-free (just mark this one as free, insert & sink or swim it in efl).
-		       //3. prev is non-free, next is (coalesce next into this one, swim it up in efl).
-
-	case 8: //prev does not exist, next does.
-	case 9: //prev does not exist, next does.
-		{
-			//prev DNE, next is non-free
-			//ch: mark free
-			//cf: ignore
-			//nh: ignore
-			//nf: ignore
-			//sink or swim
-			currentNode->setCurrentFree(true);
-			currentNode->content.efl.prev = nullptr;
-			currentNode->content.efl.next = nullptr;
-			//insert efl sink/swim
-			sink_or_swim(currentNode, page); //sink/swim does the actual adding to the EFL
-		}
-		break; //4. prev and next are both non-free (just mark this one as free, insert & sink or swim it in efl).
-		       //2. prev is free, next is not (coalesce this one in with the previous one, swim it up in efl).
-
-	case 10: //prev does not exist, next does.
-	case 11: //prev does not exist, next does.
-		{
-			nextNode = currentNode->immediateNextNeighbor();
-			nextFooter = nextNode->myFooter();
-			//prev DNE, next is free
-			//ch: update size, mark free
-			//cf: ignore
-			//nh: remove efl
-			//nf: update ptr
-			//swim from position of next's old efl position
-			//update size
-			currentNode->setSize(currentNode->size() +
-				sizeof(HeapNodeFooter) +
-				(sizeof(HeapNodeHeader) - sizeof(HeapNodeHeader::HeapNodeMandatoryBody)) +
-				nextNode->size());
-#ifdef COHERENCY_CHECK_DEBUG
-			size_t diff = (((char*)nextFooter) - ((char*)currentNode)) - (sizeof(HeapNodeHeader) - sizeof(HeapNodeHeader::HeapNodeMandatoryBody));
-			if (currentNode->size() != diff)
-			{
-				fprintf(stderr, "Failed coherency (cases 10/11), coalesce size calculation is wrong?");
-				exit(-1);
-			}
-#endif
-			HeapNodeHeader *swimStart;
-			//TODO: IS THE BELOW TODO TRUE??? since we're crafting the new efl out of this element + the portion we just freed (slightly larger than it was a second ago)???
-			{   //TODO: THIS IS A RANDOM PORTION OF THE EFL, WE HAVE NO IDEA WHAT THE SIZES OF THESE THINGS ARE IN RELATION TO US
-				//WE SHOULD NOT USE THIS AS A SWIMSTART, ALSO FIX THIS ELSEWHERE
-				//remove efl
-				HeapNodeHeader *nprev = nextNode->content.efl.prev, *nnext = nextNode->content.efl.next;
-				swimStart = nnext; //nnext is the smaller of the two, will swim in the bigger direction.
-				nnext->content.efl.prev = nprev; //nnext might be null sometimes?
-				nprev->content.efl.next = nnext;
-			}
-			//update ptr
-			nextFooter->header = currentNode;
-			//insert & swim ourselves in EFL
-			swim(currentNode, page, swimStart); //swim does the actual adding to the EFL TODO FIX SWIMSTART
-		}
-		break; //3. prev is non-free, next is (coalesce next into this one, swim it up in efl).
-		       //1. both are free (coalesce next and this one into previous, swim it up in efl).
-
-	case 12: //prev/next exist
-		{
-			//4. prev and next are both non-free (just mark this one as free, insert & sink or swim it in efl).
-			//ph: ignore
-			//pf: ignore
-			//ch: mark free, swim efl
-			//cf: ignore
-			//nh: ignore
-			//nf: ignore
-			currentNode->setCurrentFree(true);
-			currentNode->content.efl.prev = nullptr;
-			currentNode->content.efl.next = nullptr;
-			sink_or_swim(currentNode, page);
-		}
-		break;
-	case 13: //prev/next exist
-		{
-			prevNode = currentNode->immediatePrevNeighbor();
-			prevFooter = prevNode->myFooter();
-			nextNode = currentNode->immediateNextNeighbor();
-			nextFooter = nextNode->myFooter();
-			//2. prev is free, next is not (coalesce this one in with the previous one, swim it up in efl).
-			//ph: update size, swim efl
-			//pf: ignore
-			//ch: ignore
-			//cf: udpate ptr
-			//nh: ignore
-			//nf: ignore
-
-			//update size
-			prevNode->setSize(prevNode->size() +
-				sizeof(HeapNodeFooter) +
-				(sizeof(HeapNodeHeader) - sizeof(HeapNodeHeader::HeapNodeMandatoryBody)) +
-				currentNode->size());
-#ifdef COHERENCY_CHECK_DEBUG
-			size_t diff = (((char*)currentFooter) - ((char*)prevNode)) - (sizeof(HeapNodeHeader) - sizeof(HeapNodeHeader::HeapNodeMandatoryBody));
-			if (prevNode->size() != diff)
-			{
-				fprintf(stderr, "Failed coherency (case 13), coalesce size calculation is wrong?");
-				exit(-1);
-			}
-#endif
-			//update ptr
-			currentFooter->header = prevNode;
-			//insert & swim ourselves in EFL
-			swim(prevNode, page); //swim does the actual adding to the EFL
-		}
-		break;
-	case 14: //prev/next exist
-		{
-			prevNode = currentNode->immediatePrevNeighbor();
-			prevFooter = prevNode->myFooter();
-			nextNode = currentNode->immediateNextNeighbor();
-			nextFooter = nextNode->myFooter();
-			//3. prev is non-free, next is (coalesce next into this one, swim it up in efl).
-			//ph: ignore
-			//pf: ignore
-			//ch: update size, mark free, swim efl
-			//cf: ignore
-			//nh: remove efl
-			//nf: update ptr
-
-			//update size
-			currentNode->setSize(currentNode->size() +
-				sizeof(HeapNodeFooter) +
-				(sizeof(HeapNodeHeader) - sizeof(HeapNodeHeader::HeapNodeMandatoryBody)) + //TODO (for all 16 cases) this includes the size of mandatory body, fix me.
-				nextNode->size());
-			//mark free
-			currentNode->setCurrentFree(true);
-			currentNode->content.efl.prev = nullptr;
-			currentNode->content.efl.next = nullptr;
-#ifdef COHERENCY_CHECK_DEBUG
-			size_t diff = (((char*)nextFooter) - ((char*)currentNode)) - (sizeof(HeapNodeHeader) - sizeof(HeapNodeHeader::HeapNodeMandatoryBody)); //TODO (for all 16 cases) this includes the size of mandatory body, fix me.
-			if (currentNode->size() != diff)
-			{
-				fprintf(stderr, "Failed coherency (case 14), coalesce size calculation is wrong?");
-				exit(-1);
-			}
-#endif
-			//HeapNodeHeader* swimStart;
-			//{
-			//	//remove efl
-			//	HeapNodeHeader *nprev = nextNode->content.efl.prev, *nnext = nextNode->content.efl.next;
-			//	swimStart = nnext; //nnext is the smaller of the two, will swim in the bigger direction.
-			//	nnext->content.efl.prev = nprev; //TODO: nnext can be nullptr sometimes.
-			//	nprev->content.efl.next = nnext;
-			//}
-			//update ptr
-			nextFooter->header = currentNode;
-			//insert & swim ourselves in EFL
-			swim(currentNode, page, true); //swim does the actual adding to the EFL
-		}
-		break;
-	case 15: //prev/next exist
-		{
-			prevNode = currentNode->immediatePrevNeighbor();
-			prevFooter = prevNode->myFooter();
-			nextNode = currentNode->immediateNextNeighbor();
-			nextFooter = nextNode->myFooter();
-			//1. both are free (coalesce next and this one into previous, swim it up in efl).
-			//ph: update size, swim efl
-			//pf: ignore
-			//ch: ignore
-			//cf: ignore
-			//nh: remove efl
-			//nf: update ptr
-
-			//update size
-			prevNode->setSize(prevNode->size() +
-				sizeof(HeapNodeFooter) +
-				(sizeof(HeapNodeHeader) - sizeof(HeapNodeHeader::HeapNodeMandatoryBody)) +
-				currentNode->size() +
-				sizeof(HeapNodeFooter) +
-				(sizeof(HeapNodeHeader) - sizeof(HeapNodeHeader::HeapNodeMandatoryBody)) +
-				nextNode->size());
-#ifdef COHERENCY_CHECK_DEBUG
-			size_t diff = (((char*)nextFooter) - ((char*)prevNode)) - (sizeof(HeapNodeHeader) - sizeof(HeapNodeHeader::HeapNodeMandatoryBody));
-			if (prevNode->size() != diff)
-			{
-				fprintf(stderr, "Failed coherency (case 15), coalesce size calculation is wrong?");
-				exit(-1);
-			}
-#endif
-			//HeapNodeHeader* swimStart;
-			//{
-			//	//remove efl
-			//	HeapNodeHeader *nprev = nextNode->content.efl.prev, *nnext = nextNode->content.efl.next;
-			//	swimStart = nnext; //nnext is the smaller of the two, will swim in the bigger direction.
-			//	nnext->content.efl.prev = nprev; //nnext might be null sometimes.
-			//	nprev->content.efl.next = nnext; 
-			//}
-			//update ptr
-			nextFooter->header = prevNode;
-			//insert & swim ourselves in EFL
-			swim(prevNode, page, true); //swim does the actual adding to the EFL
-		}
-		break;
+		prevNode = currentNode->immediatePrevNeighbor();
+		prevNode = prevNode->isCurrentFree() ? prevNode : nullptr;
 	}
+	if (page->immediateLastNode() != currentNode)
+	{
+		nextNode = currentNode->immediateNextNeighbor();
+		nextNode = nextNode->isCurrentFree() ? nextNode : nullptr;
+	}
+	HeapNodeHeader* properHead = nullptr;
+	if (prevNode == nullptr)
+	{
+		properHead = currentNode;
+		if (nextNode == nullptr)
+		{ //case 1: just us (no coalesce), swim us from tail
+			currentNode->setCurrentFree(true);
+			currentNode->content.efl.prev = currentNode->content.efl.next = nullptr;
+			//no need to update footer
+			//no need to update size
+			sink_or_swim(currentNode, page, false);
+			//note: since currentNode was just barely freed, it couldn't have been the efl head or tail.
+		}
+		else
+		{ //case 2: us and next, swim us from next
+			currentNode->setCurrentFree(true);
+			currentNode->content.efl.prev = nextNode->content.efl.prev;
+			currentNode->content.efl.next = nextNode->content.efl.next;
+			nextNode->myFooter()->header = currentNode; //make next footer point to new head (current)
+			currentNode->setSize(currentNode->size() + nextNode->size()
+				+ (sizeof(HeapNodeHeader) - sizeof(HeapNodeHeader::HeapNodeMandatoryBody) + sizeof(HeapNodeFooter))); //update size
+			swim(currentNode, page, true); //we're swimming from the former position of "next" because we copied the efl
+			//note: if next was the head, it just got bigger, so it's still the head. If it was the tail, it got big enough it might no longer be the tail.
+		}
+	}
+	else
+	{
+		properHead = prevNode;
+		if (nextNode == nullptr)
+		{ //case 3: us and prev, swim prev from prev
+			//no need to mark prev as free
+			//no need to update prev's efl (we're going to swim from it's current position)
+			currentNode->myFooter()->header = prevNode; //make current footer point to new head (prev)
+			prevNode->setSize(prevNode->size() + currentNode->size()
+				+ (sizeof(HeapNodeHeader) - sizeof(HeapNodeHeader::HeapNodeMandatoryBody) + sizeof(HeapNodeFooter))); //update size
+			swim(prevNode, page, true); //swim prev because it just got bigger.
+			//note: if prev was the head, it just got bigger, so it's still the head. If it was the tail, it got big enough it might no longer be the tail.
+		}
+		else
+		{ //case 4: all three of us, swim prev from prev
+			//no need to mark prev as free
+			//no need to update prev's efl (we're going to swim from it's current position)
+			nextNode->myFooter()->header = prevNode; //make next footer point to new head (prev)
+			prevNode->setSize(prevNode->size() + currentNode->size() + nextNode->size()
+				+ (2 * (sizeof(HeapNodeHeader) - sizeof(HeapNodeHeader::HeapNodeMandatoryBody) + sizeof(HeapNodeFooter)))); //update size
+			swim(prevNode, page, true); //swim prev because it just got a lot bigger.
+			//note: if prev was the head, it just got bigger, so it's still the head. If it was the tail, it got big enough it might no longer be the tail.
+		}
+	}
+	//3. update efl head/tail if necessary
+	//swim/sink_or_swim() should take care of this automatically
+	//4. swim (if coalesce happened, swim in-place, if not, swim from the bottom of EFL).
+	//already done above.
 }
 
 void STGHeap::heap_check()
@@ -951,5 +727,310 @@ void STGHeap::heap_check()
 //void swim(HeapNodeHeader* node, PageHeader* ph, bool fromCurrentPosition = false)
 //{
 //
+//}
+
+//void STGHeap::stg_free(void* p)
+//{
+//	//find the page we belong to:
+//	//start from a page, then check if "p" lies within the address range of that page, if not, iterate and check the next page etc.
+//	PageHeader* page = nullptr;
+//	{
+//		PageHeader* currentPage = pd_head;
+//		do
+//		{
+//			//check if it's in the current page.
+//			//pointer lies past the page header, but before the end of the page
+//			//mins sizeof heapnodefooter *ONLY* because p points to the body, not the header.
+//			if ((currentPage + 1) <= p && p < (((char*)currentPage) + currentPage->sizeBytes - sizeof(HeapNodeFooter)))
+//			{
+//				page = currentPage;
+//				break;
+//			}
+//			//last step; step forward
+//			currentPage = currentPage->next; //this is a dll, take advantage of that somehow?
+//		} while (currentPage != nullptr);
+//#ifdef COHERENCY_CHECK_DEBUG
+//		if (page == nullptr)
+//		{
+//			//panic, couldn't find the page. User gave bad ptr?
+//			fprintf(stderr, "Failed coherency, couldn't find the page that %p belongs to, stg_free passed bad ptr?", p);
+//			exit(-1);
+//		}
+//#endif
+//	}
+//	//minus sizeof because the pointer that we gave via stg_malloc (and ultimately given back to us) points to the BODY, not the header.
+//	HeapNodeHeader* currentNode = (HeapNodeHeader*)(((char*)p) - (sizeof(HeapNodeHeader) - sizeof(HeapNodeHeader::HeapNodeMandatoryBody))), * prevNode, * nextNode;
+//	HeapNodeFooter* currentFooter = currentNode->myFooter(), * prevFooter, * nextFooter;
+//	//these are so that we know if we even *have* an immediate prev/next neighbor
+//	bool prevNeighborExists = !(page->immediateFirstNode() == currentNode), nextNeighborExists = !(page->immediateLastNode() == currentNode);
+//	bool prevFree = prevNeighborExists ? currentNode->isImmediatePreviousFree() : false, nextFree = nextNeighborExists ? currentNode->isImmediateNextFree() : false;
+//	//encode in state because I don't want a giant nested if statement
+//	char state = (prevFree ? 1 : 0) | (nextFree ? 2 : 0) | (prevNeighborExists ? 4 : 0) | (nextNeighborExists ? 8 : 0);
+//	switch (state)
+//	{
+//	case 0: //I am the one and only in the entire page(s)
+//	case 1:
+//	case 2:
+//	case 3: //prevFree/nextFree options N/A
+//	{
+//		//Free myself, make me the only entry in the EFL. I am the only node in the page(s)
+//		currentNode->setCurrentFree(true);
+//		currentNode->content.efl.prev = nullptr;
+//		currentNode->content.efl.next = nullptr;
+//		page->efl_head = currentNode;
+//		page->efl_tail = currentNode;
+//		//change this code so that it still uses sink swim for uniformity?
+//	}
+//	break;
+//
+//	case 5: //prev exists, next does not.
+//	case 7: //prev exists, next does not.
+//	{
+//		prevNode = currentNode->immediatePrevNeighbor();
+//		prevFooter = prevNode->myFooter();
+//		//next DNE, prev is free
+//		//ph: update size
+//		//pf: ignore
+//		//ch: ignore
+//		//cf: update ptr
+//		//swim
+//
+//		//update size
+//		prevNode->setSize(prevNode->size() +
+//			sizeof(HeapNodeFooter) +
+//			(sizeof(HeapNodeHeader) - sizeof(HeapNodeHeader::HeapNodeMandatoryBody)) +
+//			currentNode->size());
+//#ifdef COHERENCY_CHECK_DEBUG
+//		size_t diff = (((char*)currentFooter) - ((char*)prevNode)) - (sizeof(HeapNodeHeader) - sizeof(HeapNodeHeader::HeapNodeMandatoryBody));
+//		if (prevNode->size() != diff)
+//		{
+//			fprintf(stderr, "Failed coherency (cases 5/7), coalesce size calculation is wrong?");
+//			exit(-1);
+//		}
+//#endif
+//		//update ptr
+//		currentFooter->header = prevNode;
+//		//swim ourselves in EFL
+//		swim(prevNode, page); //swim does the actual adding to the EFL
+//	}
+//	break; //2. prev is free, next is not (coalesce this one in with the previous one, swim it up in efl).
+//	//1. both are free (coalesce next and this one into previous, swim it up in efl).
+//
+//	case 4: //prev exists, next does not.
+//	case 6: //prev exists, next does not.
+//	{
+//		//next DNE, prev is non-free
+//		//ph: ignore
+//		//pf: ignore
+//		//ch: mark free
+//		//cf: ignore
+//		//sink or swim
+//		currentNode->setCurrentFree(true);
+//		currentNode->content.efl.prev = nullptr;
+//		currentNode->content.efl.next = nullptr;
+//		//insert efl sink/swim
+//		sink_or_swim(currentNode, page); //sink/swim does the actual adding to the EFL
+//	}
+//	break; //4. prev and next are both non-free (just mark this one as free, insert & sink or swim it in efl).
+//	//3. prev is non-free, next is (coalesce next into this one, swim it up in efl).
+//
+//	case 8: //prev does not exist, next does.
+//	case 9: //prev does not exist, next does.
+//	{
+//		//prev DNE, next is non-free
+//		//ch: mark free
+//		//cf: ignore
+//		//nh: ignore
+//		//nf: ignore
+//		//sink or swim
+//		currentNode->setCurrentFree(true);
+//		currentNode->content.efl.prev = nullptr;
+//		currentNode->content.efl.next = nullptr;
+//		//insert efl sink/swim
+//		sink_or_swim(currentNode, page); //sink/swim does the actual adding to the EFL
+//	}
+//	break; //4. prev and next are both non-free (just mark this one as free, insert & sink or swim it in efl).
+//	//2. prev is free, next is not (coalesce this one in with the previous one, swim it up in efl).
+//
+//	case 10: //prev does not exist, next does.
+//	case 11: //prev does not exist, next does.
+//	{
+//		nextNode = currentNode->immediateNextNeighbor();
+//		nextFooter = nextNode->myFooter();
+//		//prev DNE, next is free
+//		//ch: update size, mark free
+//		//cf: ignore
+//		//nh: remove efl
+//		//nf: update ptr
+//		//swim from position of next's old efl position
+//		//update size
+//		currentNode->setSize(currentNode->size() +
+//			sizeof(HeapNodeFooter) +
+//			(sizeof(HeapNodeHeader) - sizeof(HeapNodeHeader::HeapNodeMandatoryBody)) +
+//			nextNode->size());
+//#ifdef COHERENCY_CHECK_DEBUG
+//		size_t diff = (((char*)nextFooter) - ((char*)currentNode)) - (sizeof(HeapNodeHeader) - sizeof(HeapNodeHeader::HeapNodeMandatoryBody));
+//		if (currentNode->size() != diff)
+//		{
+//			fprintf(stderr, "Failed coherency (cases 10/11), coalesce size calculation is wrong?");
+//			exit(-1);
+//		}
+//#endif
+//		HeapNodeHeader* swimStart;
+//		//TODO: IS THE BELOW TODO TRUE??? since we're crafting the new efl out of this element + the portion we just freed (slightly larger than it was a second ago)???
+//		{   //TODO: THIS IS A RANDOM PORTION OF THE EFL, WE HAVE NO IDEA WHAT THE SIZES OF THESE THINGS ARE IN RELATION TO US
+//			//WE SHOULD NOT USE THIS AS A SWIMSTART, ALSO FIX THIS ELSEWHERE
+//			//remove efl
+//			HeapNodeHeader* nprev = nextNode->content.efl.prev, * nnext = nextNode->content.efl.next;
+//			swimStart = nnext; //nnext is the smaller of the two, will swim in the bigger direction.
+//			nnext->content.efl.prev = nprev; //nnext might be null sometimes?
+//			nprev->content.efl.next = nnext;
+//		}
+//		//update ptr
+//		nextFooter->header = currentNode;
+//		//insert & swim ourselves in EFL
+//		swim(currentNode, page, swimStart); //swim does the actual adding to the EFL TODO FIX SWIMSTART
+//	}
+//	break; //3. prev is non-free, next is (coalesce next into this one, swim it up in efl).
+//	//1. both are free (coalesce next and this one into previous, swim it up in efl).
+//
+//	case 12: //prev/next exist
+//	{
+//		//4. prev and next are both non-free (just mark this one as free, insert & sink or swim it in efl).
+//		//ph: ignore
+//		//pf: ignore
+//		//ch: mark free, swim efl
+//		//cf: ignore
+//		//nh: ignore
+//		//nf: ignore
+//		currentNode->setCurrentFree(true);
+//		currentNode->content.efl.prev = nullptr;
+//		currentNode->content.efl.next = nullptr;
+//		sink_or_swim(currentNode, page);
+//	}
+//	break;
+//	case 13: //prev/next exist
+//	{
+//		prevNode = currentNode->immediatePrevNeighbor();
+//		prevFooter = prevNode->myFooter();
+//		nextNode = currentNode->immediateNextNeighbor();
+//		nextFooter = nextNode->myFooter();
+//		//2. prev is free, next is not (coalesce this one in with the previous one, swim it up in efl).
+//		//ph: update size, swim efl
+//		//pf: ignore
+//		//ch: ignore
+//		//cf: udpate ptr
+//		//nh: ignore
+//		//nf: ignore
+//
+//		//update size
+//		prevNode->setSize(prevNode->size() +
+//			sizeof(HeapNodeFooter) +
+//			(sizeof(HeapNodeHeader) - sizeof(HeapNodeHeader::HeapNodeMandatoryBody)) +
+//			currentNode->size());
+//#ifdef COHERENCY_CHECK_DEBUG
+//		size_t diff = (((char*)currentFooter) - ((char*)prevNode)) - (sizeof(HeapNodeHeader) - sizeof(HeapNodeHeader::HeapNodeMandatoryBody));
+//		if (prevNode->size() != diff)
+//		{
+//			fprintf(stderr, "Failed coherency (case 13), coalesce size calculation is wrong?");
+//			exit(-1);
+//		}
+//#endif
+//		//update ptr
+//		currentFooter->header = prevNode;
+//		//insert & swim ourselves in EFL
+//		swim(prevNode, page); //swim does the actual adding to the EFL
+//	}
+//	break;
+//	case 14: //prev/next exist
+//	{
+//		prevNode = currentNode->immediatePrevNeighbor();
+//		prevFooter = prevNode->myFooter();
+//		nextNode = currentNode->immediateNextNeighbor();
+//		nextFooter = nextNode->myFooter();
+//		//3. prev is non-free, next is (coalesce next into this one, swim it up in efl).
+//		//ph: ignore
+//		//pf: ignore
+//		//ch: update size, mark free, swim efl
+//		//cf: ignore
+//		//nh: remove efl
+//		//nf: update ptr
+//
+//		//update size
+//		currentNode->setSize(currentNode->size() +
+//			sizeof(HeapNodeFooter) +
+//			(sizeof(HeapNodeHeader) - sizeof(HeapNodeHeader::HeapNodeMandatoryBody)) + //TODO (for all 16 cases) this includes the size of mandatory body, fix me.
+//			nextNode->size());
+//		//mark free
+//		currentNode->setCurrentFree(true);
+//		currentNode->content.efl.prev = nullptr;
+//		currentNode->content.efl.next = nullptr;
+//#ifdef COHERENCY_CHECK_DEBUG
+//		size_t diff = (((char*)nextFooter) - ((char*)currentNode)) - (sizeof(HeapNodeHeader) - sizeof(HeapNodeHeader::HeapNodeMandatoryBody)); //TODO (for all 16 cases) this includes the size of mandatory body, fix me.
+//		if (currentNode->size() != diff)
+//		{
+//			fprintf(stderr, "Failed coherency (case 14), coalesce size calculation is wrong?");
+//			exit(-1);
+//		}
+//#endif
+//		//HeapNodeHeader* swimStart;
+//		//{
+//		//	//remove efl
+//		//	HeapNodeHeader *nprev = nextNode->content.efl.prev, *nnext = nextNode->content.efl.next;
+//		//	swimStart = nnext; //nnext is the smaller of the two, will swim in the bigger direction.
+//		//	nnext->content.efl.prev = nprev; //TODO: nnext can be nullptr sometimes.
+//		//	nprev->content.efl.next = nnext;
+//		//}
+//		//update ptr
+//		nextFooter->header = currentNode;
+//		//insert & swim ourselves in EFL
+//		swim(currentNode, page, true); //swim does the actual adding to the EFL
+//	}
+//	break;
+//	case 15: //prev/next exist
+//	{
+//		prevNode = currentNode->immediatePrevNeighbor();
+//		prevFooter = prevNode->myFooter();
+//		nextNode = currentNode->immediateNextNeighbor();
+//		nextFooter = nextNode->myFooter();
+//		//1. both are free (coalesce next and this one into previous, swim it up in efl).
+//		//ph: update size, swim efl
+//		//pf: ignore
+//		//ch: ignore
+//		//cf: ignore
+//		//nh: remove efl
+//		//nf: update ptr
+//
+//		//update size
+//		prevNode->setSize(prevNode->size() +
+//			sizeof(HeapNodeFooter) +
+//			(sizeof(HeapNodeHeader) - sizeof(HeapNodeHeader::HeapNodeMandatoryBody)) +
+//			currentNode->size() +
+//			sizeof(HeapNodeFooter) +
+//			(sizeof(HeapNodeHeader) - sizeof(HeapNodeHeader::HeapNodeMandatoryBody)) +
+//			nextNode->size());
+//#ifdef COHERENCY_CHECK_DEBUG
+//		size_t diff = (((char*)nextFooter) - ((char*)prevNode)) - (sizeof(HeapNodeHeader) - sizeof(HeapNodeHeader::HeapNodeMandatoryBody));
+//		if (prevNode->size() != diff)
+//		{
+//			fprintf(stderr, "Failed coherency (case 15), coalesce size calculation is wrong?");
+//			exit(-1);
+//		}
+//#endif
+//		//HeapNodeHeader* swimStart;
+//		//{
+//		//	//remove efl
+//		//	HeapNodeHeader *nprev = nextNode->content.efl.prev, *nnext = nextNode->content.efl.next;
+//		//	swimStart = nnext; //nnext is the smaller of the two, will swim in the bigger direction.
+//		//	nnext->content.efl.prev = nprev; //nnext might be null sometimes.
+//		//	nprev->content.efl.next = nnext; 
+//		//}
+//		//update ptr
+//		nextFooter->header = prevNode;
+//		//insert & swim ourselves in EFL
+//		swim(prevNode, page, true); //swim does the actual adding to the EFL
+//	}
+//	break;
+//	}
 //}
 #pragma endregion
