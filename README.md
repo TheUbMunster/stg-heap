@@ -3,7 +3,7 @@ If you're reading this sentence, then this memory allocator still has some nasty
 
 * Node coalescing
 * Node bifurcation
-* Explicit free list (sorted)
+* Explicit free list (sorted, in-place)
 * Implicit page directory (sorted)
 * Linear address estimation for searching
 * Adjacent page coalescing (TODO)

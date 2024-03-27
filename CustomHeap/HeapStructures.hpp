@@ -51,4 +51,4 @@ struct PageHeader
 	HeapNodeHeader* immediateLastNode(); //very last element in this page(s) block
 };
 
-constexpr size_t mandatoryHeapNodeMinSize = sizeof(HeapNodeHeader) + sizeof(HeapNodeFooter); //heapNodeHeader implicitly contains room for EFL.
+//constexpr size_t mandatoryHeapNodeMinSize = sizeof(HeapNodeHeader) + sizeof(HeapNodeFooter); //heapNodeHeader implicitly contains room for EFL.

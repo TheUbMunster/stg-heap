@@ -115,6 +115,8 @@ inline static void insertEFL(HeapNodeHeader* target, HeapNodeHeader* toInsert, b
 		HeapNodeHeader* oldPrev = target->content.efl.prev;
 		if (oldPrev != nullptr)
 			oldPrev->content.efl.next = toInsert;
+		else
+			ph->efl_head = toInsert;
 		toInsert->content.efl.prev = oldPrev;
 		toInsert->content.efl.next = target;
 		target->content.efl.prev = toInsert;
@@ -124,6 +126,8 @@ inline static void insertEFL(HeapNodeHeader* target, HeapNodeHeader* toInsert, b
 		HeapNodeHeader* oldNext = target->content.efl.next;
 		if (oldNext != nullptr)
 			oldNext->content.efl.prev = toInsert;
+		else
+			ph->efl_tail = toInsert;
 		toInsert->content.efl.next = oldNext;
 		toInsert->content.efl.prev = target;
 		target->content.efl.next = toInsert;
@@ -132,15 +136,10 @@ inline static void insertEFL(HeapNodeHeader* target, HeapNodeHeader* toInsert, b
 
 //start small, go big
 void swim(HeapNodeHeader* node, PageHeader* ph, bool fromCurrentPosition = false)
-{ //inversion of sink
+{ //copy-paste & inversion of sink
 	HeapNodeHeader* current = fromCurrentPosition ? node : ph->efl_tail;
-#ifdef COHERENCY_CHECK_DEBUG
-	if (!node->isCurrentFree())
-	{
-		fprintf(stderr, "Swim was called with non-freed node");
-		exit(-1);
-	}
-#endif
+	CHECK(node == nullptr, "Swim was called with null node");
+	CHECK(!node->isCurrentFree(), "Swim was called with non-freed node");
 	while (current != nullptr)
 	{
 		if (node->size() < current->size()) //not <= because if current was init'd to node, it would pass on the first iteration.
@@ -149,22 +148,9 @@ void swim(HeapNodeHeader* node, PageHeader* ph, bool fromCurrentPosition = false
 	}
 	if (current == nullptr)
 	{ //either we walked off the end of the EFL, or "node" was null, or the EFL was empty.
-#ifdef COHERENCY_CHECK_DEBUG
-		if (node == nullptr) //|| ph->efl_head != nullptr I think the last half of this condition cannot occur
-		{
-			fprintf(stderr, "Swim was called with null node");
-			exit(-1);
-		}
-#endif
 		if (ph->efl_tail == nullptr)
 		{ //efl empty?
-#ifdef COHERENCY_CHECK_DEBUG
-			if (ph->efl_head != nullptr)
-			{
-				fprintf(stderr, "Failed coherency, page had an efl head but no efl tail.");
-				exit(-1);
-			}
-#endif
+			CHECK(ph->efl_head != nullptr, "Failed coherency, page had an efl head but no efl tail.");
 			ph->efl_head = ph->efl_tail = node;
 			node->content.efl.next = node->content.efl.prev = nullptr;
 		}
@@ -213,13 +199,8 @@ void sink(HeapNodeHeader* node, PageHeader* ph, bool fromCurrentPosition = false
 	//	current = current->content.efl.next;
 	//}
 
-#ifdef COHERENCY_CHECK_DEBUG
-	if (!node->isCurrentFree())
-	{
-		fprintf(stderr, "Sink was called with non-freed node");
-		exit(-1);
-	}
-#endif
+	CHECK(node == nullptr, "Sink was called with null node");
+	CHECK(!node->isCurrentFree(), "Sink was called with non-freed node");
 	while (current != nullptr)
 	{
 		if (node->size() > current->size()) //not >= because if current was init'd to node, it would pass on the first iteration.
@@ -227,23 +208,10 @@ void sink(HeapNodeHeader* node, PageHeader* ph, bool fromCurrentPosition = false
 		current = current->content.efl.next; //move smallerward
 	}
 	if (current == nullptr)
-	{ //either we walked off the end of the EFL, or "node" was null, or the EFL was empty.
-#ifdef COHERENCY_CHECK_DEBUG
-		if (node == nullptr) //|| ph->efl_head != nullptr I think the last half of this condition cannot occur
-		{
-			fprintf(stderr, "Sink was called with null node");
-			exit(-1);
-		}
-#endif
+	{ //either we walked off the end of the EFL, or the EFL was empty.
 		if (ph->efl_head == nullptr)
 		{ //efl empty?
-#ifdef COHERENCY_CHECK_DEBUG
-			if (ph->efl_tail != nullptr)
-			{
-				fprintf(stderr, "Failed coherency, page had an efl tail but no efl head.");
-				exit(-1);
-			}
-#endif
+			CHECK(ph->efl_tail != nullptr, "Failed coherency, page and an efl tail but no efl head.")
 			ph->efl_head = ph->efl_tail = node;
 			node->content.efl.next = node->content.efl.prev = nullptr;
 		}
@@ -262,6 +230,7 @@ void sink(HeapNodeHeader* node, PageHeader* ph, bool fromCurrentPosition = false
 
 void sink_or_swim(HeapNodeHeader* node, PageHeader* ph, bool fromCurrentPosition = false)
 {
+	CHECK(node == nullptr, "Tried to sink_or_swim, but the node to use was null");
 	if (fromCurrentPosition)
 	{
 		//check prev & next, go in correct direction
@@ -465,7 +434,7 @@ void STGHeap::stg_free(void* p)
 			currentNode->content.efl.prev = currentNode->content.efl.next = nullptr;
 			//no need to update footer
 			//no need to update size
-			sink_or_swim(currentNode, page, false);
+			sink_or_swim(currentNode, page, false); //we have no clue, interpolate-estimate.
 			//note: since currentNode was just barely freed, it couldn't have been the efl head or tail.
 		}
 		else
@@ -504,6 +473,8 @@ void STGHeap::stg_free(void* p)
 			//note: if prev was the head, it just got bigger, so it's still the head. If it was the tail, it got big enough it might no longer be the tail.
 		}
 	}
+	// "properHead" is whatever head became the head of the (maybe) coalesced node.
+	
 	//3. update efl head/tail if necessary
 	//swim/sink_or_swim() should take care of this automatically
 	//4. swim (if coalesce happened, swim in-place, if not, swim from the bottom of EFL).
