@@ -49,7 +49,7 @@ PageHeader* STGHeap::create_and_init_page(size_t minSizeBytes, bool overheadAlre
 	n->setSize(largestPossibleNodeSize); //the whole thing
 	n->myFooter()->header = n;
 	//4. assign head and tail of EFL
-	ph->efl_head = ph->efl_tail = n;
+	ph->efl_head = ph->efl_tail = n; //TODO: don't just indiscriminately assign, this is a memory leak. if it isn't the first page(s), then we should add it to the pd dll.
 	//5. sink/swim in page directory.
 	//note: needs to handle cases where head/tails are null in pd dll.
 	CHECK((pd_head == nullptr && pd_tail != nullptr) || (pd_head != nullptr && pd_tail == nullptr), 
@@ -171,34 +171,6 @@ void swim(HeapNodeHeader* node, PageHeader* ph, bool fromCurrentPosition = false
 void sink(HeapNodeHeader* node, PageHeader* ph, bool fromCurrentPosition = false)
 { //original authoring
 	HeapNodeHeader* current = fromCurrentPosition ? node : ph->efl_head;
-	//assumption checking:
-	//"node" has a next, if not, do nothing (COHERENCY_CHECK_DEBUG make sure "node" is the efl tail)
-	//start sinking, if we reach a node with no next, then swap. (COHERENCY_CHECK_DEBUG make sure that that node was the efl tail)
-	
-	//	if (current == nullptr) //this should only happen if !fromCurrentPosition and this page has an empty EFL.
-	//	{
-	//#ifdef COHERENCY_CHECK_DEBUG
-	//		if (fromCurrentPosition) //|| ph->efl_head != nullptr I think the last half of this condition cannot occur
-	//		{
-	//			fprintf(stderr, "Sink was called with null node");
-	//			exit(-1);
-	//		}
-	//#endif
-	//		//not from current position, and also empty EFL
-	//		ph->efl_head = ph->efl_tail = node;
-	//		return;
-	//	}
-
-	//while (current->content.efl.next != nullptr)
-	//{
-	//	if (node->size() >= current->content.efl.next->size())
-	//	{
-	//		//the node we're examining is smaller than the node we're sinking, we can insert the node to the left of ex (larger side)
-	//		break;
-	//	}
-	//	current = current->content.efl.next;
-	//}
-
 	CHECK(node == nullptr, "Sink was called with null node");
 	CHECK(!node->isCurrentFree(), "Sink was called with non-freed node");
 	while (current != nullptr)
@@ -261,7 +233,7 @@ void sink_or_swim(HeapNodeHeader* node, PageHeader* ph, bool fromCurrentPosition
 		//note, if the thing we're working on is smaller than the currently sorted efl, then "smalld" will be negative
 		//in that case, bigd would be much larger (+), and again, "smalld" is negative, so it get's classified as "kinda small"
 		//similar logic applies for vice versa
-		int bigd = ph->efl_head->size() - node->size(), smalld = node->size() - ph->efl_tail->size();
+		long bigd = ((long)ph->efl_head->size()) - ((long)node->size()), smalld = ((long)node->size()) - ((long)ph->efl_tail->size());
 		if (bigd > smalld)
 		{
 			//this is further away in size from big things, so it's "kinda small", therefore, start at tail and swim
@@ -355,13 +327,7 @@ void* STGHeap::stg_malloc(size_t size)
 			candidate->content.efl.prev->content.efl.next = candidate->content.efl.next;
 		else //no "prev" = that SHOULD mean that candidate is the head.
 		{
-#ifdef COHERENCY_CHECK_DEBUG
-			if (pp->efl_head != candidate)
-			{
-				fprintf(stderr, "Free HeapNodeHeader has no prev in EFL, implies that it's the head of the EFL, and yet was not.");
-				exit(-1);
-			}
-#endif
+			CHECK(pp->efl_head != candidate, "Free HeapNodeHeader has no prev in EFL, implies that it's the head of the EFL, and yet was not.");
 			pp->efl_head = candidate->content.efl.next;
 			if (candidate->content.efl.next != nullptr)
 				candidate->content.efl.next->content.efl.prev = nullptr;
@@ -370,13 +336,7 @@ void* STGHeap::stg_malloc(size_t size)
 			candidate->content.efl.next->content.efl.prev = candidate->content.efl.prev;
 		else //no "next" = that SHOULD mean that candidate is the tail.
 		{
-#ifdef COHERENCY_CHECK_DEBUG
-			if (pp->efl_tail != candidate)
-			{
-				fprintf(stderr, "Free HeapNodeHeader has no next in EFL, implies that it's the tail of the EFL, and yet was not.");
-				exit(-1);
-			}
-#endif
+			CHECK(pp->efl_tail != candidate, "Free HeapNodeHeader has no next in EFL, implies that it's the tail of the EFL, and yet was not.");
 			pp->efl_tail = candidate->content.efl.prev;
 			if (candidate->content.efl.prev != nullptr)
 				candidate->content.efl.prev->content.efl.next = nullptr;
@@ -426,7 +386,7 @@ void STGHeap::stg_free(void* p)
 	}
 	HeapNodeHeader* properHead = nullptr;
 	if (prevNode == nullptr)
-	{
+	{ //todo, if efl node head got changed via coalesce, need to update efl head/tail if necessary.
 		properHead = currentNode;
 		if (nextNode == nullptr)
 		{ //case 1: just us (no coalesce), swim us from tail
@@ -434,6 +394,7 @@ void STGHeap::stg_free(void* p)
 			currentNode->content.efl.prev = currentNode->content.efl.next = nullptr;
 			//no need to update footer
 			//no need to update size
+			BULK_ZERO(((char*)currentNode) + sizeof(HeapNodeHeader), currentNode->size() - sizeof(HeapNodeHeader::HeapNodeMandatoryBody));
 			sink_or_swim(currentNode, page, false); //we have no clue, interpolate-estimate.
 			//note: since currentNode was just barely freed, it couldn't have been the efl head or tail.
 		}
@@ -445,7 +406,18 @@ void STGHeap::stg_free(void* p)
 			nextNode->myFooter()->header = currentNode; //make next footer point to new head (current)
 			currentNode->setSize(currentNode->size() + nextNode->size()
 				+ (sizeof(HeapNodeHeader) - sizeof(HeapNodeHeader::HeapNodeMandatoryBody) + sizeof(HeapNodeFooter))); //update size
-			swim(currentNode, page, true); //we're swimming from the former position of "next" because we copied the efl
+			BULK_ZERO(((char*)currentNode) + sizeof(HeapNodeHeader), currentNode->size() - sizeof(HeapNodeHeader::HeapNodeMandatoryBody));
+			if (page->efl_head == nextNode)
+				page->efl_head = currentNode; //no need to swim, the biggest thing just got bigger.
+			if (page->efl_tail == nextNode)
+			{
+				page->efl_tail = currentNode; //might need to swim, smallest thing just got bigger.
+				swim(currentNode, page, true); //we're swimming from the former position of "next" because we copied the efl
+			}
+			//if (currentNode->content.efl.prev != nullptr)
+			//	swim(currentNode, page, true); //we're swimming from the former position of "next" because we copied the efl
+			//else
+			//	sink_or_swim(currentNode, page, false);
 			//note: if next was the head, it just got bigger, so it's still the head. If it was the tail, it got big enough it might no longer be the tail.
 		}
 	}
@@ -459,7 +431,13 @@ void STGHeap::stg_free(void* p)
 			currentNode->myFooter()->header = prevNode; //make current footer point to new head (prev)
 			prevNode->setSize(prevNode->size() + currentNode->size()
 				+ (sizeof(HeapNodeHeader) - sizeof(HeapNodeHeader::HeapNodeMandatoryBody) + sizeof(HeapNodeFooter))); //update size
-			swim(prevNode, page, true); //swim prev because it just got bigger.
+			BULK_ZERO(((char*)prevNode) + sizeof(HeapNodeHeader), prevNode->size() - sizeof(HeapNodeHeader::HeapNodeMandatoryBody));
+			//if (page->efl_head == prevNode) //do nothing
+			//	; //no need to swim, the biggest thing just got bigger.
+			if (page->efl_tail == prevNode)
+			{ //might need to swim, smallest thing just got bigger.
+				swim(prevNode, page, true); //swim prev because it just got bigger.
+			}
 			//note: if prev was the head, it just got bigger, so it's still the head. If it was the tail, it got big enough it might no longer be the tail.
 		}
 		else
@@ -469,7 +447,13 @@ void STGHeap::stg_free(void* p)
 			nextNode->myFooter()->header = prevNode; //make next footer point to new head (prev)
 			prevNode->setSize(prevNode->size() + currentNode->size() + nextNode->size()
 				+ (2 * (sizeof(HeapNodeHeader) - sizeof(HeapNodeHeader::HeapNodeMandatoryBody) + sizeof(HeapNodeFooter)))); //update size
-			swim(prevNode, page, true); //swim prev because it just got a lot bigger.
+			BULK_ZERO(((char*)prevNode) + sizeof(HeapNodeHeader), prevNode->size() - sizeof(HeapNodeHeader::HeapNodeMandatoryBody));
+			//if (page->efl_head == prevNode) //do nothing
+			//	; //no need to swim, the biggest thing just got bigger.
+			if (page->efl_tail == prevNode)
+			{ //might need to swim, smallest thing just got bigger.
+				swim(prevNode, page, true); //swim prev because it just got a lot bigger.
+			}
 			//note: if prev was the head, it just got bigger, so it's still the head. If it was the tail, it got big enough it might no longer be the tail.
 		}
 	}
