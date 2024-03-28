@@ -54,7 +54,7 @@ PageHeader* STGHeap::create_and_init_page(size_t minSizeBytes, bool overheadAlre
 	//note: needs to handle cases where head/tails are null in pd dll.
 	CHECK((pd_head == nullptr && pd_tail != nullptr) || (pd_head != nullptr && pd_tail == nullptr), 
 		"Failed coherency, page directory had a head but no tail or vice versa.");
-	if (pd_head == nullptr)
+	if (pd_head == nullptr) //TODO: just walk though the pd list dll until we find the proper spot and insert it.
 		pd_head = pd_tail = ph;
 	else
 	{
@@ -467,7 +467,7 @@ void STGHeap::stg_free(void* p)
 
 void STGHeap::heap_check()
 {
-	#ifdef COHERENCY_CHECK_DEBUG
+	#ifdef DEBUG_COHERENCY_CHECK
 	bool goodHeap = true;
 	//walk through all pages
 	PageHeader* currentPage = pd_head;

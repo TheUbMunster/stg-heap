@@ -50,5 +50,37 @@ namespace HeapTests
 			void* ptr = heap.stg_malloc(size + 1);
 			Assert::IsNotNull(ptr);
 		}
+		TEST_METHOD(FreeCase1) //no free neighbors
+		{
+			STGHeap heap{};
+			size_t* var1 = (size_t*)heap.stg_malloc(sizeof(size_t));
+			size_t* var2 = (size_t*)heap.stg_malloc(sizeof(size_t));
+			size_t* var3 = (size_t*)heap.stg_malloc(sizeof(size_t));
+			heap.stg_free(var2);
+		}
+		TEST_METHOD(FreeCase2) //"next" is free
+		{
+			STGHeap heap{};
+			size_t* var1 = (size_t*)heap.stg_malloc(sizeof(size_t));
+			size_t* var2 = (size_t*)heap.stg_malloc(sizeof(size_t));
+			heap.stg_free(var2);
+		}
+		TEST_METHOD(FreeCase3) //"prev" is free
+		{
+			STGHeap heap{};
+			size_t* var1 = (size_t*)heap.stg_malloc(sizeof(size_t));
+			size_t* var2 = (size_t*)heap.stg_malloc(sizeof(size_t));
+			size_t* var3 = (size_t*)heap.stg_malloc(sizeof(size_t));
+			heap.stg_free(var1);
+			heap.stg_free(var2); //this one
+		}
+		TEST_METHOD(FreeCase4) //both neighbors are free
+		{
+			STGHeap heap{};
+			size_t* var1 = (size_t*)heap.stg_malloc(sizeof(size_t));
+			size_t* var2 = (size_t*)heap.stg_malloc(sizeof(size_t));
+			heap.stg_free(var1);
+			heap.stg_free(var2); //this one
+		}
 	};
 }

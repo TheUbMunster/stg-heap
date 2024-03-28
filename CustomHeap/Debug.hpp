@@ -15,6 +15,8 @@
 #endif
 
 #ifdef DEBUG_ZERO_OLD_MEM
+//maybe this hsould use std::memset?
+//https://stackoverflow.com/questions/47381520/how-to-get-efficient-asm-for-zeroing-a-tiny-struct-with-msvc-for-x86-32?rq=3
 #define BULK_ZERO(ADDR, LEN) \
 {\
 	unsigned long long len = LEN;\

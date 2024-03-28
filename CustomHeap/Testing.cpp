@@ -8,11 +8,9 @@ int main()
 	STGHeap heap{};
 	printf("after heap construction");
 	size_t* var = (size_t*)heap.stg_malloc(sizeof(size_t));
+	*var = 0x6969696969696969ULL;
 	void* var2 = heap.stg_malloc(24);
+	for (size_t i = 0; i < 24; i++)
+		*(((char*)var2) + i) = "Howdy! This is a thing."[i];
 	heap.stg_free(var2);
-	//test
-	//size_t s = 100000;
-	//void* a = p_alloc(s);
-	//printf("%p", a);
-	//p_free(a, s);
 }
