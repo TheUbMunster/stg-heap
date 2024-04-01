@@ -3,12 +3,7 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.7.34202.233
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "CustomHeap", "CustomHeap\CustomHeap.vcxproj", "{43F36C16-3FEC-480A-9121-85473D5BA902}"
-EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "OG", "OG", "{053B7AFA-B2C4-412C-B0EC-1289980178E4}"
-	ProjectSection(SolutionItems) = preProject
-		..\..\..\!college\UofU\Unsorted\CS 4400\malloclab-handout.lnk = ..\..\..\!college\UofU\Unsorted\CS 4400\malloclab-handout.lnk
-	EndProjectSection
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "stg-heap", "stg-heap\stg-heap.vcxproj", "{43F36C16-3FEC-480A-9121-85473D5BA902}"
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "HeapTests", "HeapTests\HeapTests.vcxproj", "{35E602FB-727E-4DFB-88A2-018E8FDDEA5F}"
 EndProject
