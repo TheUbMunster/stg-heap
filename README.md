@@ -1,5 +1,5 @@
 # Features
-If you're reading this sentence, then this memory allocator still has some nasty bugs that make it not very usable (currently).
+If you're reading this sentence, then this memory allocator still has some issues being worked out & testing that needs to be done that before I would endorse it for "prime time".
 
 * Node coalescing
 * Node bifurcation
