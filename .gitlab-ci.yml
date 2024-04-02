@@ -10,4 +10,6 @@ run-tests:
         path: test-coverage.xml
   script:
 #    - gcovr --cobertura test-coverage.xml
+# -o "[solution folder]\CodeCoverageTest.cov" -p "[root path of your code; omit the trailing '']" -- "[executable to run...]" [... optional arguments...] 
     - echo howdy!
+    - C:\Users\gitlab-runner-1\Desktop\Coverage-x64.exe -format cobertura -o $(CI_PROJECT_DIR)\test-coverage.xml -p $(CI_PROJECT_DIR) -- HeapTests.dll
