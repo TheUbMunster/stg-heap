@@ -1,0 +1,13 @@
+stages:
+  - test
+  
+run-tests:
+  stage: test
+  artifacts:
+    reports:
+      coverage_report:
+        coverage_format: cobertura
+        path: test-coverage.xml
+  script:
+#    - gcovr --cobertura test-coverage.xml
+    - echo howdy!
