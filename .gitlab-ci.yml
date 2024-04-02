@@ -15,6 +15,5 @@ run-tests:
   script:
 #    - gcovr --cobertura test-coverage.xml
 # -o "[solution folder]\CodeCoverageTest.cov" -p "[root path of your code; omit the trailing '']" -- "[executable to run...]" [... optional arguments...] 
-    - >
-      "C:\Program Files\Microsoft Visual Studio\2022\Community\MSBuild\Current\Bin\MSBuild.exe" $CI_PROJECT_DIR stg-heap.sln /build
+    - Start-Process -Wait -PassThru -NoNewWindow -FilePath "C:\Program Files\Microsoft Visual Studio\2022\Community\MSBuild\Current\Bin\MSBuild.exe" -ArgumentList "$CI_PROJECT_DIR stg-heap.sln /build"
     - C:\Users\gitlab-runner-1\Desktop\Coverage-x64.exe -format cobertura -o $CI_PROJECT_DIR\test-coverage.xml -p $CI_PROJECT_DIR -w $CI_PROJECT_DIR\x64\Debug -- stg-heap.exe
