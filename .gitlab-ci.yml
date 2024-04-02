@@ -1,3 +1,7 @@
+#https://github.com/gcovr/gcovr
+#https://github.com/danielpalme/ReportGenerator
+#https://github.com/atlaste/CPPCoverage
+
 stages:
   - test
   
@@ -11,5 +15,5 @@ run-tests:
   script:
 #    - gcovr --cobertura test-coverage.xml
 # -o "[solution folder]\CodeCoverageTest.cov" -p "[root path of your code; omit the trailing '']" -- "[executable to run...]" [... optional arguments...] 
-    - echo howdy!
+    - msbuild $CI_PROJECT_DIR stg-heap.sln /build
     - C:\Users\gitlab-runner-1\Desktop\Coverage-x64.exe -format cobertura -o $CI_PROJECT_DIR\test-coverage.xml -p $CI_PROJECT_DIR -w $CI_PROJECT_DIR\x64\Debug -- stg-heap.exe
