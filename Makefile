@@ -2,17 +2,12 @@ src = $(wildcard stg-heap/source/*.cpp)
 
 build: clean
 	mkdir -p bin
-	g++ $(src) -O2 -o testing.out
-	mv testing.out bin
+	g++ $(src) -O2 -o bin/testing.out
 build-test: clean
 	mkdir -p bin
-	g++ $(src) --coverage -g -O0 -o coverable.out
-	mv coverable.out bin
+	g++ $(src) --coverage -g -O0 -o bin/coverable.out
 test: build-test
-	cd bin
-	./coverable.out
-	gcovr --cobertura test-coverage.xml
-	cd ..
-
+	./bin/coverable.out
+	gcovr -r stg-heap/source/ --cobertura bin/test-coverage.xml bin/
 clean:
 	rm -rf bin
