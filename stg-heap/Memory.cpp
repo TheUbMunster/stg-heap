@@ -54,7 +54,7 @@ void p_free(void* pp, size_t pageCount)
 		exit(-1);
 	}
 #else
-	if (!munmap(pp, byteCount))
+	if (munmap(pp, byteCount))
 	{
 		fprintf(stderr, "POSIX munmap failed: %d", errno);
 		exit(-1);

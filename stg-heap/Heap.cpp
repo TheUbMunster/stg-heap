@@ -6,14 +6,7 @@
 
 STGHeap::STGHeap()
 {
-	//TODO: do this properly ?
-	
-	//size_t pc = 1;
-	//PageHeader* ph = ((PageHeader*)p_alloc(pc));
-	//ph->sizeBytes = p_size() * pc;
-	//pd_head = pd_tail = ph;
-
-	//this should handle everything above
+	pd_head = pd_tail = nullptr;
 	create_and_init_page(p_size(), true);
 }
 
