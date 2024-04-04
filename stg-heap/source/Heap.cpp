@@ -1,6 +1,6 @@
-#include "Heap.hpp"
-#include "Memory.hpp"
-#include "Debug.hpp"
+#include "../include/Heap.hpp"
+#include "../include/Memory.hpp"
+#include "../include/Debug.hpp"
 #include <stdio.h>
 #include <stdlib.h>
 #include <cstddef>

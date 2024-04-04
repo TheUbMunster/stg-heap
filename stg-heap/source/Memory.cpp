@@ -1,4 +1,4 @@
-#include "Memory.hpp"
+#include "../include/Memory.hpp"
 //fprintf and exit
 #include <stdio.h>
 #include <stdlib.h>
