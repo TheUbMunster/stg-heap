@@ -3,6 +3,7 @@
 #include "Debug.hpp"
 #include <stdio.h>
 #include <stdlib.h>
+#include <cstddef>
 
 STGHeap::STGHeap()
 {
@@ -11,7 +12,7 @@ STGHeap::STGHeap()
 	//size_t pc = 1;
 	//PageHeader* ph = ((PageHeader*)p_alloc(pc));
 	//ph->sizeBytes = p_size() * pc;
-	//pd_head = pd_tail = ph;
+	pd_head = pd_tail = nullptr;
 
 	//this should handle everything above
 	create_and_init_page(p_size(), true);
