@@ -1,4 +1,5 @@
-https://gitlab.stg.com/stg-portfolio/stg-heap/badges/main/coverage.svg
+![coverage](https://gitlab.stg.com/stg-portfolio/stg-heap/badges/move-to-makefile/coverage.svg?job=coverage)
+
 # Features
 If you're reading this sentence, then this memory allocator still has some issues being worked out & testing that needs to be done that before I would endorse it for "prime time".
 
