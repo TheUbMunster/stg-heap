@@ -14,4 +14,9 @@ int main()
 	for (size_t i = 0; i < 24; i++)
 		*(((char*)var2) + i) = "Howdy! This is a thing."[i];
 	heap.stg_free(var2);
+	void* var3 = heap.stg_malloc(sizeof(size_t));
+	void* var4 = heap.stg_malloc(sizeof(size_t));
+	void* var5 = heap.stg_malloc(sizeof(size_t));
+	void* var6 = heap.stg_malloc(sizeof(size_t));
+	heap.stg_free(var5);
 }
