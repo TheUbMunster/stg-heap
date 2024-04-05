@@ -19,4 +19,5 @@ int main()
 	void* var5 = heap.stg_malloc(sizeof(size_t));
 	void* var6 = heap.stg_malloc(sizeof(size_t));
 	heap.stg_free(var5);
+	heap.stg_free(var6);
 }
