@@ -9,5 +9,6 @@ build-test: clean
 test: build-test
 	./bin/coverable.out
 	cd .. ;	gcovr --txt -r stg-heap/stg-heap/source/ --cobertura stg-heap/bin/test-coverage.xml stg-heap/bin/
+	mv bin/test-coverage.xml test-coverage.xml
 clean:
 	rm -rf bin
