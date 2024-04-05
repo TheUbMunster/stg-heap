@@ -8,6 +8,6 @@ build-test: clean
 	g++ $(src) --coverage -g -O0 -o bin/coverable.out
 test: build-test
 	./bin/coverable.out
-	gcovr --txt -r stg-heap/source/ --cobertura bin/test-coverage.xml bin/
+	cd .. ;	gcovr --txt -r stg-heap/stg-heap/source/ --cobertura stg-heap/bin/test-coverage.xml stg-heap/bin/
 clean:
 	rm -rf bin
