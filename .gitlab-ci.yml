@@ -37,6 +37,6 @@ run-tests:
     reports:
       coverage_report:
         coverage_format: cobertura
-        path: test-coverage.xml
+        path: bin/test-coverage.xml
   script:
     - make test
