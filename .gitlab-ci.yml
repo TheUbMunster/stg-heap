@@ -32,6 +32,7 @@ run-tests:
   tags:
     - linux
   needs: ["build-test"]
+  coverage: '/^TOTAL.*\s+(\d+\%)$/'
   artifacts:
     reports:
       coverage_report:
