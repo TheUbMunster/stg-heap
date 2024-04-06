@@ -13,3 +13,5 @@ If you're reading this sentence, then this memory allocator still has some issue
 * Fully unit tested (TODO & report code coverage)
 * Logarithmic linked list skipping (https://en.wikipedia.org/wiki/Skip_list) (TODO)
 ## Copyright TheUbMunster 2024, all rights reserved.
+
+TODO: put common build logic (g++) in a cross platform shell script (pwsh?), then make platform specific build files (NMAKE for windows, MAKE for linux), then set up the IDE's on each respective OS to use the build files (n/make) to run and/or debug the project.
