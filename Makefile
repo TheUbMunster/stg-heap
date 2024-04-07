@@ -14,10 +14,15 @@ run-coverage: build-coverage
 	echo "PERFORMING: ${@}..."
 	./bin/coverable.out
 	gcovr --txt -r stg-heap/source/ --cobertura bin/test-coverage.xml --root ${CI_PROJECT_DIR} bin/
-build-release: clean
+build-release: build-release-win build-release-linux
+	echo "Building the windows and linux releases..."
+build-release-win: clean
 	echo "PERFORMING: ${@}..."
-	mkdir -p bin
-	g++ $(src) -I"stg-heap/include" -O2 -o bin/testing.out
+	mkdir -p bin/win
+build-release-linux: clean
+	echo "PERFORMING: ${@}..."
+	mkdir -p bin/linux
+	g++ $(src) -I"stg-heap/include" -O2 -o bin/linux/testing.out
 clean:
 	echo "PERFORMING: ${@}..."
 	rm -rf bin
