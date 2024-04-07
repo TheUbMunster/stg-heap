@@ -3,32 +3,24 @@
 #https://github.com/atlaste/CPPCoverage
 
 stages:
-  - buildlib
-  - buildtest
-  - test
+  - build
+  - run
 
-build-lib:
-  stage: buildlib
+# build-tests:
+# run-tests:
+    
+build-coverage:
+  stage: build
   tags:
     - linux
   artifacts:
     paths:
       - "bin/"
   script:
-    - make build
+    - make build-coverage    
 
-build-test:
-  stage: buildtest
-  tags:
-    - linux
-  artifacts:
-    paths:
-      - "bin/"
-  script:
-    - make build-test
-
-run-tests:
-  stage: test
+run-coverage:
+  stage: run
   tags:
     - linux
   needs: ["build-test"]
@@ -39,4 +31,14 @@ run-tests:
         coverage_format: cobertura
         path: bin/test-coverage.xml
   script:
-    - make test
+    - make run-coverage
+
+build-release:
+  stage: build
+  tags:
+    - linux
+  artifacts:
+    paths:
+      - "bin/"
+  script:
+    - make build-release

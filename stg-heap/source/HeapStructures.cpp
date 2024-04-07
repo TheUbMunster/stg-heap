@@ -1,4 +1,4 @@
-#include "../include/HeapStructures.hpp"
+#include "HeapStructures.hpp"
 #include <cstddef>
 
 HeapNodeHeader::HeapNodeHeader()
