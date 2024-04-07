@@ -23,7 +23,7 @@ run-coverage:
   stage: run
   tags:
     - linux
-  needs: ["build-test"]
+  needs: ["build-coverage"]
   coverage: '/^TOTAL.*\s+(\d+\%)$/'
   artifacts:
     reports:
