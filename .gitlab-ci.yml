@@ -9,7 +9,7 @@ stages:
 
 # build-tests:
 # run-tests:
-    
+
 build-coverage:
   stage: build
   tags:
@@ -18,7 +18,7 @@ build-coverage:
     paths:
       - "bin/"
   script:
-    - make build-coverage    
+    - make build-coverage
 
 run-coverage:
   stage: run
@@ -54,15 +54,15 @@ release:
     VERSION_NAME: 'v0.$CI_PIPELINE_IID'
     VNAME_FILE: 'v0-$CI_PIPELINE_IID'
     URL_PREF: ${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic/stg-heap/${VERSION_NAME}
-    URL_WIN: ${URL_PREF}/stg-heap-win.zip 
+    URL_WIN: ${URL_PREF}/stg-heap-win.zip
     URL_LINUX: ${URL_PREF}/stg-heap-linux.zip
   tags:
     - linux
   needs: ["build-release"]
   script:
     - echo "Running release job."
-    - cd bin/win ; zip -r ../../stg-heap-win.zip * ; cd ../..
-    - cd bin/linux ; zip -r ../../stg-heap-linux.zip * ; cd ../..
+    - cd bin/win ; zip -r ../../stg-heap-win.zip * -x bin/win/intermediate/* ; cd ../..
+    - cd bin/linux ; zip -r ../../stg-heap-linux.zip * -x bin/linux/intermediate/* ; cd ../..
     - ls
     - 'curl --header "JOB-TOKEN: $CI_JOB_TOKEN" --upload-file ./stg-heap-win.zip ${URL_WIN}'
     - 'curl --header "JOB-TOKEN: $CI_JOB_TOKEN" --upload-file ./stg-heap-linux.zip ${URL_LINUX}'
