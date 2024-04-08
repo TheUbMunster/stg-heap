@@ -7,24 +7,10 @@ stages:
   - run
   - release
 
-# build-tests:
-# run-tests:
-
-build-coverage:
-  stage: build
-  tags:
-    - linux
-  artifacts:
-    paths:
-      - "bin/"
-  script:
-    - make build-coverage
-
-run-coverage:
+tests-and-coverage:
   stage: run
   tags:
     - linux
-  needs: ["build-coverage"]
   coverage: '/^TOTAL.*\s+(\d+\%)$/'
   artifacts:
     reports:
@@ -32,7 +18,7 @@ run-coverage:
         coverage_format: cobertura
         path: bin/test-coverage.xml
   script:
-    - make run-coverage
+    - make test
 
 build-release:
   stage: build
