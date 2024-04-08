@@ -5,7 +5,7 @@ test: SHELL:=/bin/bash
 test: clean
 	echo "PERFORMING: ${@}..."
 	#make sure the variable representing the root of the project is assigned even if not being run via gitlab CI
-	@echo $${CI_PROJECT_DIR:=$$(pwd)}
+	@echo PROJECT DIR $${CI_PROJECT_DIR:=$$(pwd)}
 	#make directories
 	@mkdir -p bin/test
 	@cd bin/test
