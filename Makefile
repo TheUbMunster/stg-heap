@@ -1,9 +1,8 @@
-.ONESHELL: build-release-linux build-tests
-.PHONY: clean build-release-linux build-releases test
-
+.ONESHELL: test
+.PHONY: test
 test: SHELL:=/bin/bash
 test: clean
-	echo "PERFORMING: ${@}..."
+	@echo "PERFORMING: ${@}..."
 	#make sure the variable representing the root of the project is assigned even if not being run via gitlab CI
 	@echo PROJECT DIR $${CI_PROJECT_DIR:=$$(pwd)}
 	#make directories
@@ -18,23 +17,12 @@ test: clean
 	@cd ../..
 	gcovr -e unit-tests/ -e googletest/ --txt -r stg-heap/source/ --cobertura bin/test-coverage.xml --root $${CI_PROJECT_DIR} bin/test/
 
-#run-tests: SHELL:=/bin/bash
-#run-tests: build-tests
-#	echo "PERFORMING: ${@}..."
-	#make sure the variable representing the root of the project is assigned even if not being run via gitlab CI
-#	@echo $${CI_PROJECT_DIR:=$$(pwd)}
-#	./bin/linux/build/coverable.out
-#	gcovr --txt -r stg-heap/source/ --cobertura bin/test-coverage.xml --root $${CI_PROJECT_DIR} bin/linux/build/
-#build-coverage: clean
-#	echo "PERFORMING: ${@}..."
-#	mkdir -p bin
-#	g++ $(src) -I"stg-heap/include" --coverage -g -O0 -o bin/coverable.out
-#run-coverage: build-coverage
-#	echo "PERFORMING: ${@}..."
-#	./bin/coverable.out
-#	gcovr --txt -r stg-heap/source/ --cobertura bin/test-coverage.xml --root ${CI_PROJECT_DIR} bin/
+.PHONY: build-releases
 build-releases: build-release-linux
 	echo "Building the windows and linux releases..."
+
+.ONESHELL: build-release-linux
+.PHONY: build-release-linux
 build-release-linux: SHELL:=/bin/bash
 build-release-linux: clean
 	@echo "PERFORMING: ${@}..."
@@ -53,6 +41,8 @@ build-release-linux: clean
 	@ar rcs libstg-heap.a $${objs}
 	@cp libstg-heap.a ../build/
 	#usage example: g++ Testing.cpp -I"stg-heap/include" -L. -lstg-heap -o test.out
+
+.PHONY: clean
 clean:
 	echo "PERFORMING: ${@}..."
 	rm -rf bin
