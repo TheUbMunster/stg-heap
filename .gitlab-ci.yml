@@ -19,7 +19,7 @@ get-and-compile-submodules:
   script:
     - git submodule update --init --recursive
     - cd googletest
-    - mkdir build
+    - mkdir -p build
     - cd build
     - cmake ..
     - make
