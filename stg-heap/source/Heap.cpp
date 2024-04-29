@@ -3,6 +3,7 @@
 #include "Debug.hpp"
 #include <stdio.h>
 #include <stdlib.h>
+#include <cstddef>
 
 STGHeap::STGHeap()
 {

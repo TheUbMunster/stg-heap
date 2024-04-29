@@ -1,5 +1,7 @@
 #pragma once
 
+#include <cstddef>
+
 #define DEBUG_COHERENCY_CHECK
 #define DEBUG_ZERO_OLD_MEM
 

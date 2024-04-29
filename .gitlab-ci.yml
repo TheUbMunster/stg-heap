@@ -3,17 +3,81 @@
 #https://github.com/atlaste/CPPCoverage
 
 stages:
-  - test
-  
-run-tests:
-  stage: test
+  - getsubmodules
+  - build
+  - run
+  - release
+
+get-and-compile-submodules:
+  stage: getsubmodules
+  tags:
+    - linux
+  artifacts:
+    paths:
+      - "googletest/googletest/include"
+      - "googletest/build/lib"
+  script:
+    - git submodule update --init --recursive
+    - cd googletest
+    - mkdir -p build
+    - cd build
+    - cmake ..
+    - make
+
+tests-and-coverage:
+  stage: run
+  tags:
+    - linux
+  needs: ["get-and-compile-submodules"]
+  coverage: '/^TOTAL.*\s+(\d+\%)$/'
   artifacts:
     reports:
       coverage_report:
         coverage_format: cobertura
-        path: test-coverage.xml
+        path: bin/test-coverage.xml
   script:
-#    - gcovr --cobertura test-coverage.xml
-# -o "[solution folder]\CodeCoverageTest.cov" -p "[root path of your code; omit the trailing '']" -- "[executable to run...]" [... optional arguments...] 
-    - Start-Process -Wait -PassThru -NoNewWindow -FilePath "C:\Program Files\Microsoft Visual Studio\2022\Community\MSBuild\Current\Bin\MSBuild.exe" -ArgumentList "$CI_PROJECT_DIR stg-heap.sln /build"
-    - C:\Users\gitlab-runner-1\Desktop\Coverage-x64.exe -format cobertura -o $CI_PROJECT_DIR\test-coverage.xml -p $CI_PROJECT_DIR -w $CI_PROJECT_DIR\x64\Debug -- stg-heap.exe
+    - make test
+
+build-release:
+  stage: build
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CI_PIPELINE_SOURCE != "web"
+  tags:
+    - linux
+  artifacts:
+    paths:
+      - "bin/"
+  script:
+    - make build-release
+
+release:
+  stage: release
+  rules:
+    - if: $CI_COMMIT_TAG && $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CI_PIPELINE_SOURCE != "web"
+  variables:
+    VERSION_NAME: 'v0.$CI_PIPELINE_IID'
+    VNAME_FILE: 'v0-$CI_PIPELINE_IID'
+    URL_PREF: ${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic/stg-heap/${VERSION_NAME}
+    URL_WIN: ${URL_PREF}/stg-heap-win.zip
+    URL_LINUX: ${URL_PREF}/stg-heap-linux.zip
+  tags:
+    - linux
+  needs: ["build-release"]
+  script:
+    - echo "Running release job."
+    - cd bin/win ; zip -r ../../stg-heap-win.zip * -x bin/win/intermediate/* ; cd ../..
+    - cd bin/linux ; zip -r ../../stg-heap-linux.zip * -x bin/linux/intermediate/* ; cd ../..
+    - ls
+    - 'curl --header "JOB-TOKEN: $CI_JOB_TOKEN" --upload-file ./stg-heap-win.zip ${URL_WIN}'
+    - 'curl --header "JOB-TOKEN: $CI_JOB_TOKEN" --upload-file ./stg-heap-linux.zip ${URL_LINUX}'
+  release:
+    tag_name: $CI_COMMIT_TAG
+    name: 'Release $CI_COMMIT_TAG'
+    description: 'Release created in gitlab CI. To compile from source, run "make build-release" from the root of the project.'
+    ref: $CI_COMMIT_SHA
+    assets:
+      links:
+        - name: 'Windows Release'
+          url: ${URL_WIN}
+        - name: 'Linux Release'
+          url: ${URL_LINUX}

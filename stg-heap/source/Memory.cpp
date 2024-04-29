@@ -2,6 +2,7 @@
 //fprintf and exit
 #include <stdio.h>
 #include <stdlib.h>
+#include <cstddef>
 
 #if _WIN32
 //#include <memoryapi.h>
