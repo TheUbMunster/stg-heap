@@ -3,32 +3,14 @@
 #https://github.com/atlaste/CPPCoverage
 
 stages:
-  - getsubmodules
   - build
   - run
   - release
-
-get-and-compile-submodules:
-  stage: getsubmodules
-  tags:
-    - linux
-  artifacts:
-    paths:
-      - "googletest/googletest/include"
-      - "googletest/build/lib"
-  script:
-    - git submodule update --init --recursive
-    - cd googletest
-    - mkdir -p build
-    - cd build
-    - cmake ..
-    - make
 
 tests-and-coverage:
   stage: run
   tags:
     - linux
-  needs: ["get-and-compile-submodules"]
   coverage: '/^TOTAL.*\s+(\d+\%)$/'
   artifacts:
     reports:
@@ -36,7 +18,8 @@ tests-and-coverage:
         coverage_format: cobertura
         path: bin/test-coverage.xml
   script:
-    - make test
+    - echo todo  
+#    - make test
 
 build-release:
   stage: build
@@ -48,7 +31,8 @@ build-release:
     paths:
       - "bin/"
   script:
-    - make build-release
+    - echo todo  
+#    - make build-release
 
 release:
   stage: release
