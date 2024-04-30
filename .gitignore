@@ -378,3 +378,5 @@ _deps
 **/*.vcxproj
 **/*.vcxproj.*
 **/*.sln
+
+build/**/*
