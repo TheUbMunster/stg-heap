@@ -20,7 +20,7 @@ tests-and-coverage:
   script:
     - mkdir - build
     - cd build
-    - cmake ..
+    - cmake -DBUILD_MODE=COVERAGE ..
     - cmake --build .
 
 build-release:
