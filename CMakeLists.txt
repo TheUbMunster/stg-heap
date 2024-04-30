@@ -21,5 +21,5 @@ FetchContent_MakeAvailable(googletest)
 #1. build the heap lib (win or linux)
 #2. build the unit tests for debugging
 #3. build the unit tests for coverage
-set(BUILD_MODE DEBUG CACHE STRING "What type of build")
+set(BUILD_MODE DEBUG CACHE STRING "What type of build, options are: RELEASE_WIN RELEASE_LINUX DEBUG COVERAGE")
 set_property(CACHE BUILD_MODE PROPERTY STRINGS RELEASE_WIN RELEASE_LINUX DEBUG COVERAGE)

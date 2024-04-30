@@ -18,8 +18,10 @@ tests-and-coverage:
         coverage_format: cobertura
         path: bin/test-coverage.xml
   script:
-    - echo todo  
-#    - make test
+    - mkdir - build
+    - cd build
+    - cmake ..
+    - cmake --build .
 
 build-release:
   stage: build
@@ -31,7 +33,7 @@ build-release:
     paths:
       - "bin/"
   script:
-    - echo todo  
+    - echo todo
 #    - make build-release
 
 release:

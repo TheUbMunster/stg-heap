@@ -6,7 +6,7 @@ include_directories(${global-project_SOURCE_DIR}/unit-tests/include)
 #includes for the heap lib project
 include_directories(${global-project_SOURCE_DIR}/stg-heap/include)
 link_directories(${global-project_SOURCE_DIR}/stg-heap/source)
-message(COMMENT "Compiler: ${CMAKE_CXX_COMPILER_ID} ${CMAKE_CXX_COMPILER_VERSION}")
+message("Compiler: ${CMAKE_CXX_COMPILER_ID} ${CMAKE_CXX_COMPILER_VERSION}")
 if(BUILD_MODE STREQUAL "COVERAGE")
 	if(CMAKE_COMPILER_IS_GNUCXX)
 		add_executable(unit-tests Testing.cpp)
