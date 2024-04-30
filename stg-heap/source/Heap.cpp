@@ -13,7 +13,7 @@ STGHeap::STGHeap()
 
 STGHeap::~STGHeap()
 {
-	printf("deconstructor");
+	//printf("deconstructor");
 	//TODO: walk through the page directory dll and free all the pages.
 	//anything else????
 	PageHeader* c = pd_head;

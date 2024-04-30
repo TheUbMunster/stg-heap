@@ -1,2 +1,6 @@
 include_directories(${global-project_SOURCE_DIR}/stg-heap/include)
 add_library(stg-heap Heap.cpp HeapStructures.cpp Memory.cpp)
+if(BUILD_MODE STREQUAL "COVERAGE")
+	target_compile_options(stg-heap PUBLIC -O0 --coverage)
+	target_link_libraries(stg-heap PUBLIC --coverage)
+endif()
