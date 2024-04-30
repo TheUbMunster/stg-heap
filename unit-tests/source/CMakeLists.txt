@@ -1,3 +1,4 @@
+project(unit-tests)
 #includes for google test
 include_directories(${global-project_SOURCE_DIR}/googletest/googletest/include)
 #includes for the unit testing project
@@ -16,6 +17,8 @@ if(BUILD_MODE STREQUAL "COVERAGE")
 	endif()
 elseif(BUILD_MODE STREQUAL "DEBUG")
 	add_executable(unit-tests Testing.cpp)
-	target_compile_options(unit-tests PUBLIC -Og)
+	if (NOT MSVC)
+		target_compile_options(unit-tests PUBLIC -Og)
+	endif()
 	target_link_libraries(unit-tests PUBLIC stg-heap GTest::gtest_main)
 endif()
