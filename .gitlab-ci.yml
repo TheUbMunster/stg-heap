@@ -23,7 +23,7 @@ tests-and-coverage:
     - cmake -DBUILD_MODE=COVERAGE ..
     - cmake --build .
 
-build-release:
+build-release-linux:
   stage: build
   rules:
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CI_PIPELINE_SOURCE != "web"
@@ -33,8 +33,10 @@ build-release:
     paths:
       - "bin/"
   script:
-    - echo todo
-#    - make build-release
+    - mkdir - build
+    - cd build
+    - cmake -DBUILD_MODE=RELEASE_LINUX ..
+    - cmake --build .
 
 release:
   stage: release
