@@ -53,7 +53,7 @@ release:
     URL_LINUX: ${URL_PREF}/stg-heap-linux.zip
   tags:
     - linux
-  needs: ["build-release"]
+  needs: ["build-release-linux"]
   script:
     - echo "Running release job."
     - cd bin/win ; zip -r ../../stg-heap-win.zip * -x bin/win/intermediate/* ; cd ../..
