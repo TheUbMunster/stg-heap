@@ -16,12 +16,15 @@ tests-and-coverage:
     reports:
       coverage_report:
         coverage_format: cobertura
-        path: bin/test-coverage.xml
+        path: test-coverage.xml
   script:
     - mkdir - build
     - cd build
     - cmake -DBUILD_MODE=COVERAGE ..
     - cmake --build .
+    - cd ..
+    - .${CI_PROJECT_DIR}/build/unit-tests/source/unit-tests
+    - gcovr --cobertura test-coverage.xml --txt ${CI_PROJECT_DIR}/build/stg-heap/source/CMakeFiles/stg-heap.dir
 
 build-release-linux:
   stage: build
