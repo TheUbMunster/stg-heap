@@ -24,7 +24,7 @@ tests-and-coverage:
     - cmake --build .
     - cd ..
     - ${CI_PROJECT_DIR}/build/unit-tests/source/unit-tests
-    - gcovr --txt --cobertura test-coverage.xml -r stg-heap/source/ ${CI_PROJECT_DIR}/build/stg-heap/source/CMakeFiles/stg-heap.dir
+    - gcovr --txt --cobertura test-coverage.xml ${CI_PROJECT_DIR}/build/stg-heap/source/CMakeFiles/stg-heap.dir
 
 build-release-linux:
   stage: build
