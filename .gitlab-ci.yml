@@ -23,7 +23,7 @@ tests-and-coverage:
     - cmake -DBUILD_MODE=COVERAGE ..
     - cmake --build .
     - cd ..
-    - .${CI_PROJECT_DIR}/build/unit-tests/source/unit-tests
+    - ${CI_PROJECT_DIR}/build/unit-tests/source/unit-tests
     - gcovr --cobertura test-coverage.xml --txt ${CI_PROJECT_DIR}/build/stg-heap/source/CMakeFiles/stg-heap.dir
 
 build-release-linux:
