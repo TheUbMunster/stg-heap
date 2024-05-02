@@ -18,12 +18,12 @@ tests-and-coverage:
         coverage_format: cobertura
         path: test-coverage.xml
   script:
-    - mkdir - build
+    - mkdir -p build
     - cd build
     - cmake -DBUILD_MODE=COVERAGE ..
     - cmake --build .
     - cd ..
-    - ${CI_PROJECT_DIR}/build/unit-tests/source/unit-tests
+    - ./build/unit-tests/source/unit-tests
     - gcovr --txt --cobertura test-coverage.xml ${CI_PROJECT_DIR}/build/stg-heap/source/CMakeFiles/stg-heap.dir
 
 build-release-linux:
@@ -34,41 +34,45 @@ build-release-linux:
     - linux
   artifacts:
     paths:
-      - "bin/"
+      - "bin-lib"
   script:
-    - mkdir - build
+    - mkdir -p build
     - cd build
     - cmake -DBUILD_MODE=RELEASE_LINUX ..
     - cmake --build .
+    - cd ..
+    - mkdir -p bin-lib
+    - cp build/stg-heap/source/libstg-heap.a bin-lib/libstg-heap.a
+    - cp -r stg-heap/include bin-lib
 
 release:
   stage: release
   rules:
-    - if: $CI_COMMIT_TAG && $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CI_PIPELINE_SOURCE != "web"
+    - if: $CI_COMMIT_TAG && $CI_PIPELINE_SOURCE != "web" && $CI_COMMIT_MESSAGE =~ /!RELEASE!/ #&& $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
   variables:
     VERSION_NAME: 'v0.$CI_PIPELINE_IID'
     VNAME_FILE: 'v0-$CI_PIPELINE_IID'
     URL_PREF: ${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic/stg-heap/${VERSION_NAME}
-    URL_WIN: ${URL_PREF}/stg-heap-win.zip
+#    URL_WIN: ${URL_PREF}/stg-heap-win.zip
     URL_LINUX: ${URL_PREF}/stg-heap-linux.zip
   tags:
     - linux
   needs: ["build-release-linux"]
   script:
     - echo "Running release job."
-    - cd bin/win ; zip -r ../../stg-heap-win.zip * -x bin/win/intermediate/* ; cd ../..
+#    - cd bin/win ; zip -r ../../stg-heap-win.zip * -x bin/win/intermediate/* ; cd ../..
     - cd bin/linux ; zip -r ../../stg-heap-linux.zip * -x bin/linux/intermediate/* ; cd ../..
     - ls
-    - 'curl --header "JOB-TOKEN: $CI_JOB_TOKEN" --upload-file ./stg-heap-win.zip ${URL_WIN}'
+#    - 'curl --header "JOB-TOKEN: $CI_JOB_TOKEN" --upload-file ./stg-heap-win.zip ${URL_WIN}'
     - 'curl --header "JOB-TOKEN: $CI_JOB_TOKEN" --upload-file ./stg-heap-linux.zip ${URL_LINUX}'
   release:
     tag_name: $CI_COMMIT_TAG
     name: 'Release $CI_COMMIT_TAG'
-    description: 'Release created in gitlab CI. To compile from source, run "make build-release" from the root of the project.'
+    description: 'Release created in gitlab CI. To compile from source, run "mkdir build ; cd build ; cmake -DBUILD_MODE=RELEASE_LINUX .. ; cmake --build ." from the root of the project.'
     ref: $CI_COMMIT_SHA
     assets:
       links:
-        - name: 'Windows Release'
-          url: ${URL_WIN}
+#        - name: 'Windows Release'
+#          url: ${URL_WIN}
         - name: 'Linux Release'
           url: ${URL_LINUX}
