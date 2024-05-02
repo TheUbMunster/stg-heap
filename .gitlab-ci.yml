@@ -68,7 +68,7 @@ release:
   release:
     tag_name: $CI_COMMIT_TAG
     name: 'Release $CI_COMMIT_TAG'
-    description: 'Release created in gitlab CI. To compile from source, run "mkdir build ; cd build ; cmake -DBUILD_MODE=RELEASE_LINUX .. ; cmake --build ." from the root of the project.'
+    description: 'Release created in gitlab CI. To compile from source, download the source and follow the instructions in the readme.md'
     ref: $CI_COMMIT_SHA
     assets:
       links:
