@@ -48,7 +48,7 @@ build-release-linux:
 release:
   stage: release
   rules:
-    - if: $CI_COMMIT_TAG && $CI_PIPELINE_SOURCE != "web" && $CI_COMMIT_MESSAGE =~ /\*RELEASE\*/ #&& $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+    - if: $CI_COMMIT_TAG && $CI_PIPELINE_SOURCE != "web" && $CI_COMMIT_MESSAGE =~ /\x2ARELEASE\x2A/ #&& $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
   variables:
     VERSION_NAME: 'v0.$CI_PIPELINE_IID'
     VNAME_FILE: 'v0-$CI_PIPELINE_IID'
