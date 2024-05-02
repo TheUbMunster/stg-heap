@@ -3,81 +3,99 @@
 #https://github.com/atlaste/CPPCoverage
 
 stages:
-  - getsubmodules
+  - test
   - build
-  - run
   - release
 
-get-and-compile-submodules:
-  stage: getsubmodules
-  tags:
-    - linux
-  artifacts:
-    paths:
-      - "googletest/googletest/include"
-      - "googletest/build/lib"
-  script:
-    - git submodule update --init --recursive
-    - cd googletest
-    - mkdir -p build
-    - cd build
-    - cmake ..
-    - make
-
 tests-and-coverage:
-  stage: run
+  stage: test
   tags:
     - linux
-  needs: ["get-and-compile-submodules"]
   coverage: '/^TOTAL.*\s+(\d+\%)$/'
   artifacts:
     reports:
       coverage_report:
         coverage_format: cobertura
-        path: bin/test-coverage.xml
+        path: test-coverage.xml
   script:
-    - make test
+    - mkdir -p build
+    - cd build
+    - cmake -DBUILD_MODE=COVERAGE ..
+    - cmake --build .
+    - cd ..
+    - ./build/unit-tests/source/unit-tests
+    - gcovr --txt --cobertura test-coverage.xml ${CI_PROJECT_DIR}/build/stg-heap/source/CMakeFiles/stg-heap.dir
 
-build-release:
+build-release-linux:
+  variables:
+    OUTPUT_DIR: "bin-lib-linux"
   stage: build
   rules:
-    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CI_PIPELINE_SOURCE != "web"
+    - if: $CI_COMMIT_TAG && $CI_PIPELINE_SOURCE != "web" && $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
   tags:
     - linux
   artifacts:
     paths:
-      - "bin/"
+      - ${OUTPUT_DIR}
   script:
-    - make build-release
+    - mkdir -p build
+    - cd build
+    - cmake -DBUILD_MODE=RELEASE_LINUX ..
+    - cmake --build .
+    - cd ..
+    - mkdir -p ${OUTPUT_DIR}
+    - cp build/stg-heap/source/libstg-heap.a ${OUTPUT_DIR}/libstg-heap.a
+    - cp -r stg-heap/include ${OUTPUT_DIR}
+
+build-release-win:
+  variables:
+    OUTPUT_DIR: "bin-lib-win"
+  stage: build
+  rules:
+    - if: $CI_COMMIT_TAG && $CI_PIPELINE_SOURCE != "web" && $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+  tags:
+    - windows
+  artifacts:
+    paths:
+      - ${OUTPUT_DIR}
+  script:
+    - mkdir -p build
+    - cd build
+    - cmake -DBUILD_MODE=RELEASE_WIN ..
+    - cmake --build .
+    - cd ..
+    - mkdir -p ${OUTPUT_DIR}
+    #TODO: figure out what the .lib is called on windows.
+#    - cp build/stg-heap/source/libstg-heap.a ${OUTPUT_DIR}/libstg-heap.a
+#    - cp -r stg-heap/include ${OUTPUT_DIR}
 
 release:
   stage: release
   rules:
-    - if: $CI_COMMIT_TAG && $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CI_PIPELINE_SOURCE != "web"
+    - if: $CI_COMMIT_TAG && $CI_PIPELINE_SOURCE != "web" #&& $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
   variables:
     VERSION_NAME: 'v0.$CI_PIPELINE_IID'
     VNAME_FILE: 'v0-$CI_PIPELINE_IID'
     URL_PREF: ${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic/stg-heap/${VERSION_NAME}
-    URL_WIN: ${URL_PREF}/stg-heap-win.zip
+#    URL_WIN: ${URL_PREF}/stg-heap-win.zip
     URL_LINUX: ${URL_PREF}/stg-heap-linux.zip
   tags:
     - linux
-  needs: ["build-release"]
+  needs: ["build-release-linux"]
   script:
     - echo "Running release job."
-    - cd bin/win ; zip -r ../../stg-heap-win.zip * -x bin/win/intermediate/* ; cd ../..
-    - cd bin/linux ; zip -r ../../stg-heap-linux.zip * -x bin/linux/intermediate/* ; cd ../..
-    - ls
-    - 'curl --header "JOB-TOKEN: $CI_JOB_TOKEN" --upload-file ./stg-heap-win.zip ${URL_WIN}'
+#    - cd bin-lib-win ; zip -r stg-heap-win.zip bin-lib-win/* ; cd ..
+    - cd bin-lib-linux ; zip -r stg-heap-linux.zip * ; cd ..
+#    - 'curl --header "JOB-TOKEN: $CI_JOB_TOKEN" --upload-file ./stg-heap-win.zip ${URL_WIN}'
     - 'curl --header "JOB-TOKEN: $CI_JOB_TOKEN" --upload-file ./stg-heap-linux.zip ${URL_LINUX}'
   release:
     tag_name: $CI_COMMIT_TAG
     name: 'Release $CI_COMMIT_TAG'
-    description: 'Release created in gitlab CI. To compile from source, run "make build-release" from the root of the project.'
+    description: 'Release created in gitlab CI. To compile from source, download the source and follow the instructions in the readme.md'
     ref: $CI_COMMIT_SHA
     assets:
       links:
-        - name: 'Windows Release'
-          url: ${URL_WIN}
-        - name: 'Linux Release'
+#        - name: 'Windows library (binary release)'
+#          url: ${URL_WIN}
+        - name: 'Linux static library (binary release)'
           url: ${URL_LINUX}
