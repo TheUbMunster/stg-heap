@@ -5,11 +5,11 @@
 
 stages:
   - build
-  - run
+  - test
   - release
 
 tests-and-coverage:
-  stage: run
+  stage: test
   tags:
     - linux
   coverage: '/^TOTAL.*\s+(\d+\%)$/'
@@ -29,8 +29,8 @@ tests-and-coverage:
 
 build-release-linux:
   stage: build
-  rules:
-    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CI_PIPELINE_SOURCE != "web"
+#  rules:
+#    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CI_PIPELINE_SOURCE != "web"
   tags:
     - linux
   artifacts:
