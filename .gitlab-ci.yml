@@ -12,13 +12,16 @@ tests-and-coverage:
   tags:
     - linux
   coverage: '/^TOTAL.*\s+(\d+\%)$/'
+  rules: #if doing a release, does this cause code coverage to not show up on that release or something?
+    - if: $CI_COMMIT_TAG
+      when: never 
+    - when: always
   artifacts:
     reports:
       coverage_report:
         coverage_format: cobertura
         path: test-coverage.xml
-  script:
-    - echo asdassddas $CI_PIPELINE_SOURCE  
+  script: #either regular or being caused by tag, this job shows $CI_PIPELINE_SOURCE == "push"
     - mkdir -p build
     - cd build
     - cmake -DBUILD_MODE=COVERAGE ..
@@ -32,7 +35,7 @@ build-release-linux:
     OUTPUT_DIR: "bin-lib-linux"
   stage: build
   rules:
-    - if: $CI_COMMIT_TAG && $CI_PIPELINE_SOURCE != "web" && $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+    - if: $CI_COMMIT_TAG && $CI_PIPELINE_SOURCE != "web"
   tags:
     - linux
   artifacts:
@@ -53,7 +56,7 @@ build-release-win:
     OUTPUT_DIR: "bin-lib-win"
   stage: build
   rules:
-    - if: $CI_COMMIT_TAG && $CI_PIPELINE_SOURCE != "web" && $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+    - if: $CI_COMMIT_TAG && $CI_PIPELINE_SOURCE != "web"
   tags:
     - windows
   artifacts:
@@ -72,7 +75,7 @@ build-release-win:
 release:
   stage: release
   rules:
-    - if: $CI_COMMIT_TAG && $CI_PIPELINE_SOURCE != "web" && $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+    - if: $CI_COMMIT_TAG && $CI_PIPELINE_SOURCE != "web" #&& $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH not avaliable in tag pipelines, need similar functionality
   variables:
     VERSION_NAME: 'v0.$CI_PIPELINE_IID'
     VNAME_FILE: 'v0-$CI_PIPELINE_IID'
