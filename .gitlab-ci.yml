@@ -41,7 +41,7 @@ build-release-linux:
     - mkdir -p build
     - cd build
     - cmake -DBUILD_MODE=RELEASE_LINUX ..
-    - cmake --build .
+    - cmake --build . --config Release
     - cd ..
     - mkdir -p ${OUTPUT_DIR}
     - cp build/stg-heap/source/libstg-heap.a ${OUTPUT_DIR}/libstg-heap.a
@@ -62,31 +62,30 @@ build-release-win:
     - mkdir -p build
     - cd build
     - cmake -DBUILD_MODE=RELEASE_WIN ..
-    - cmake --build .
+    - cmake --build . --config Release
     - cd ..
     - mkdir -p ${OUTPUT_DIR}
-    #TODO: figure out what the .lib is called on windows.
-#    - cp build/stg-heap/source/libstg-heap.a ${OUTPUT_DIR}/libstg-heap.a
-#    - cp -r stg-heap/include ${OUTPUT_DIR}
+    - cp out/build/x64-Release/stg-heap/source/stg-heap.lib ${OUTPUT_DIR}/libstg-heap.lib
+    - cp -r stg-heap/include ${OUTPUT_DIR}
 
 release:
   stage: release
   rules:
-    - if: $CI_COMMIT_TAG && $CI_PIPELINE_SOURCE != "web" #&& $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+    - if: $CI_COMMIT_TAG && $CI_PIPELINE_SOURCE != "web" && $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
   variables:
     VERSION_NAME: 'v0.$CI_PIPELINE_IID'
     VNAME_FILE: 'v0-$CI_PIPELINE_IID'
     URL_PREF: ${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic/stg-heap/${VERSION_NAME}
-#    URL_WIN: ${URL_PREF}/stg-heap-win.zip
+    URL_WIN: ${URL_PREF}/stg-heap-win.zip
     URL_LINUX: ${URL_PREF}/stg-heap-linux.zip
   tags:
     - linux
   needs: ["build-release-linux"]
   script:
     - echo "Running release job."
-#    - cd bin-lib-win ; zip -r stg-heap-win.zip bin-lib-win/* ; cd ..
+    - cd bin-lib-win ; zip -r stg-heap-win.zip * ; cd ..
     - cd bin-lib-linux ; zip -r stg-heap-linux.zip * ; cd ..
-#    - 'curl --header "JOB-TOKEN: $CI_JOB_TOKEN" --upload-file ./stg-heap-win.zip ${URL_WIN}'
+    - 'curl --header "JOB-TOKEN: $CI_JOB_TOKEN" --upload-file ./stg-heap-win.zip ${URL_WIN}'
     - 'curl --header "JOB-TOKEN: $CI_JOB_TOKEN" --upload-file ./stg-heap-linux.zip ${URL_LINUX}'
   release:
     tag_name: $CI_COMMIT_TAG
@@ -95,7 +94,7 @@ release:
     ref: $CI_COMMIT_SHA
     assets:
       links:
-#        - name: 'Windows library (binary release)'
-#          url: ${URL_WIN}
+        - name: 'Windows library (binary release)'
+          url: ${URL_WIN}
         - name: 'Linux static library (binary release)'
           url: ${URL_LINUX}
