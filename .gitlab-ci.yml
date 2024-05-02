@@ -69,7 +69,7 @@ build-release-win:
     - cmake --build . --config Release
     - cd ..
     - mkdir -p ${OUTPUT_DIR}
-    - cp out/build/x64-Release/stg-heap/source/stg-heap.lib ${OUTPUT_DIR}/libstg-heap.lib
+    - cp build/stg-heap/source/Release/stg-heap.lib ${OUTPUT_DIR}/libstg-heap.lib
     - cp -r stg-heap/include ${OUTPUT_DIR}
 
 release:
