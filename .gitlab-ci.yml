@@ -42,9 +42,9 @@ build-release-linux:
     - cmake -DBUILD_MODE=RELEASE_LINUX ..
     - cmake --build .
     - cd ..
-    - mkdir -p bin-lib
-    - cp build/stg-heap/source/libstg-heap.a bin-lib/libstg-heap.a
-    - cp -r stg-heap/include bin-lib
+    - mkdir -p bin-lib-linux
+    - cp build/stg-heap/source/libstg-heap.a bin-lib-linux/libstg-heap.a
+    - cp -r stg-heap/include bin-lib-linux
 
 release:
   stage: release
