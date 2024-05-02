@@ -63,6 +63,7 @@ build-release-win:
     paths:
       - ${OUTPUT_DIR}
   script:
+    - echo %PATH%
     - mkdir -p build
     - cd build
     - cmake -DBUILD_MODE=RELEASE_WIN ..
