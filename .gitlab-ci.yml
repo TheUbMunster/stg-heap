@@ -18,6 +18,7 @@ tests-and-coverage:
         coverage_format: cobertura
         path: test-coverage.xml
   script:
+    - echo asdassddas $CI_PIPELINE_SOURCE  
     - mkdir -p build
     - cd build
     - cmake -DBUILD_MODE=COVERAGE ..
@@ -80,7 +81,7 @@ release:
     URL_LINUX: ${URL_PREF}/stg-heap-linux.zip
   tags:
     - linux
-  needs: ["build-release-linux"]
+  needs: ["build-release-linux", "build-release-win"]
   script:
     - echo "Running release job."
     - cd bin-lib-win ; zip -r stg-heap-win.zip * ; cd ..
