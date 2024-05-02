@@ -35,7 +35,7 @@ build-release-linux:
     - linux
   artifacts:
     paths:
-      - "bin-lib"
+      - "bin-lib-linux"
   script:
     - mkdir -p build
     - cd build
@@ -61,8 +61,8 @@ release:
   needs: ["build-release-linux"]
   script:
     - echo "Running release job."
-#    - cd bin/win ; zip -r ../../stg-heap-win.zip * -x bin/win/intermediate/* ; cd ../..
-    - cd bin/linux ; zip -r ../../stg-heap-linux.zip * -x bin/linux/intermediate/* ; cd ../..
+#    - zip -r stg-heap-win.zip bin-lib-windows/*
+    - zip -r stg-heap-linux.zip bin-lib-linux/*
     - ls
 #    - 'curl --header "JOB-TOKEN: $CI_JOB_TOKEN" --upload-file ./stg-heap-win.zip ${URL_WIN}'
     - 'curl --header "JOB-TOKEN: $CI_JOB_TOKEN" --upload-file ./stg-heap-linux.zip ${URL_LINUX}'
