@@ -87,10 +87,15 @@ release:
   needs: ["build-release-linux", "build-release-win"]
   script:
     - echo "Running release job."
-    - cd bin-lib-win ; zip -r stg-heap-win.zip * ; cd ..
-    - cd bin-lib-linux ; zip -r stg-heap-linux.zip * ; cd ..
+    # win
+    - chmod -R -002 bin-lib-win #fix funky difference in file perms since this folder came from windows.
+    - cd bin-lib-win ; zip -r stg-heap-win.zip *
     - 'curl --header "JOB-TOKEN: $CI_JOB_TOKEN" --upload-file ./stg-heap-win.zip ${URL_WIN}'
+    - cd ..
+    # linux
+    - cd bin-lib-linux ; zip -r stg-heap-linux.zip *
     - 'curl --header "JOB-TOKEN: $CI_JOB_TOKEN" --upload-file ./stg-heap-linux.zip ${URL_LINUX}'
+    - cd ..
   release:
     tag_name: $CI_COMMIT_TAG
     name: 'Release $CI_COMMIT_TAG'
