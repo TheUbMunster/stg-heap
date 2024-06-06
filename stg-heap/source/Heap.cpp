@@ -8,7 +8,7 @@
 STGHeap::STGHeap()
 {
 	pd_head = pd_tail = nullptr;
-	create_and_init_page(p_size(), true);
+	//create_and_init_page(p_size(), true); //lazy init; the first malloc call will handle creating_and_init the first page
 }
 
 STGHeap::~STGHeap()
@@ -43,12 +43,12 @@ PageHeader* STGHeap::create_and_init_page(size_t minSizeBytes, bool overheadAlre
 	n->setSize(largestPossibleNodeSize); //the whole thing
 	n->myFooter()->header = n;
 	//4. assign head and tail of EFL
-	ph->efl_head = ph->efl_tail = n; //TODO: don't just indiscriminately assign, this is a memory leak. if it isn't the first page(s), then we should add it to the pd dll.
+	ph->efl_head = ph->efl_tail = n;
 	//5. sink/swim in page directory.
 	//note: needs to handle cases where head/tails are null in pd dll.
 	CHECK((pd_head == nullptr && pd_tail != nullptr) || (pd_head != nullptr && pd_tail == nullptr), 
 		"Failed coherency, page directory had a head but no tail or vice versa.");
-	if (pd_head == nullptr) //TODO: just walk though the pd list dll until we find the proper spot and insert it.
+	if (pd_head == nullptr)
 		pd_head = pd_tail = ph;
 	else
 	{
@@ -66,20 +66,45 @@ PageHeader* STGHeap::create_and_init_page(size_t minSizeBytes, bool overheadAlre
 			//make it the new tail because it's the smallest.
 			ph->prev = pd_tail;
 			pd_tail->next = ph;
-			pd_tail = ph;
+			pd_tail = ph; //"" ""
 		}
 		else
 		{
-			CHECK(true, "Non edge-case page size (sink/swim in pd dll); Not yet implemented.");
-			//TODO:
 			size_t td = hs - minSizeBytes, bd = minSizeBytes - ts;
 			if (td > bd)
 			{
 				//it's closer to the bottom, start small and swim
+				PageHeader* current = pd_tail;
+				while (current != nullptr)
+				{
+					if (ph->sizeBytes < current->sizeBytes)
+						break; //we can insert to the right of current
+					current = current->prev;
+				}
+				CHECK(current == nullptr, "Failed coherency, somehow newly created page is large enough to qualify as the new pd head, and yet we already checked that was not true?!");
+				CHECK(current->next == nullptr, "Failed coherency, somehow newly created page is small enough to qualify as the new pd tail, and yet we already checked that was not true?!");
+				//since we're insterting to the *right* of current, this couldn't possibly be the new head
+				ph->next = current->next;
+				ph->prev = current;
+				current->next->prev = ph;
+				current->next = ph;
 			}
 			else
 			{
 				//it's closer to the top, start big and sink
+				PageHeader* current = pd_head;
+				while (current != nullptr)
+				{
+					if (ph->sizeBytes > current->sizeBytes)
+						break; //we can insert to the left of current
+					current = current->next; //move smallerward
+				}
+				CHECK(current == nullptr, "Failed coherency, somehow newly created page is small enough to qualify as the new pd tail, and yet we already checked that was not true?!");
+				CHECK(current->prev == nullptr, "Failed coherency, somehow newly created page is large enough to qualify as the new pd head, and yet we already checked that was not true?!");
+				ph->next = current;
+				ph->prev = current->prev;
+				current->prev->next = ph;
+				current->prev = ph;
 			}
 		}
 	}

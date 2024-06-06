@@ -17,7 +17,7 @@ struct HeapNodeHeader
 	//I think the size refers to the size of the body of the node (not including header/footer size).
 	//it doesn't refer to the requested size for malloc, it refers to the actual size that malloc chose.
 	unsigned long long header_data;
-	union HeapNodeMandatoryBody
+	union HeapNodeMandatoryBody //maybe separate this out so that sizeof(HeapNodeHeader) doesn't implicitly include this size, not intuitive.
 	{
 		void* mem;
 		struct
