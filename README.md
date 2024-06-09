@@ -1,4 +1,6 @@
-![coverage](http://gitlab.stg/stg-portfolio/stg-heap/badges/move-to-makefile/coverage.svg)
+![coverage](http://gitlab.stg/stg-portfolio/stg-heap/badges/main/coverage.svg)
+
+## Copyright TheUbMunster 2024, all rights reserved.
 
 # Features
 If you're reading this sentence, then this memory allocator still has some issues being worked out & testing that needs to be done that before I would endorse it for "prime time".
@@ -12,9 +14,6 @@ If you're reading this sentence, then this memory allocator still has some issue
 * Page freeing (with counter thrashing measures) (TODO)
 * Fully unit tested (TODO & report code coverage)
 * Logarithmic linked list skipping (https://en.wikipedia.org/wiki/Skip_list) (TODO)
-## Copyright TheUbMunster 2024, all rights reserved.
-
-TODO: put common build logic (g++) in a cross platform shell script (pwsh?), then make platform specific build files (NMAKE for windows, MAKE for linux), then set up the IDE's on each respective OS to use the build files (n/make) to run and/or debug the project.
 
 # Behavior
 * Calling `stg_malloc(size)` will return a 16-byte pointer to a dynamically allocated piece of memory of size greater than or equal to `size`.
