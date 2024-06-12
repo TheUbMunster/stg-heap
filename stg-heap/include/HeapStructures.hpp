@@ -51,6 +51,7 @@ struct PageHeader
 	unsigned long long sizeBytes; //the size of these page(s) in bytes, multiple of p_size(), this includes the size of the page header itself.
 	HeapNodeHeader* immediateFirstNode(); //very first element in this page(s) block
 	HeapNodeHeader* immediateLastNode(); //very last element in this page(s) block
+	bool isEntirePageFree(); //do these page(s) consist of a single free HeapNode?
 };
 
 //constexpr size_t mandatoryHeapNodeMinSize = sizeof(HeapNodeHeader) + sizeof(HeapNodeFooter); //heapNodeHeader implicitly contains room for EFL.

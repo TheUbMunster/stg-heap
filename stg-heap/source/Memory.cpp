@@ -45,16 +45,16 @@ void* p_alloc(size_t pageCount)
 /// </summary>
 void p_free(void* pp, size_t pageCount)
 {
-	size_t byteCount = pageCount * p_size();
 #if _WIN32
 	if (!VirtualFree(pp, 0, MEM_RELEASE)) //after "DECOMMIT", pages are in the "RESERVED" state. These 
-												   //"RESERVED" pages can be reallocated without any further intervention via VirtualAlloc
+										  //"RESERVED" pages can be reallocated without any further intervention via VirtualAlloc
 	{
 		//panic
 		fprintf(stderr, "Windows Virtual Free Failed: %d", GetLastError());
 		exit(-1);
 	}
 #else
+	size_t byteCount = pageCount * p_size();
 	if (munmap(pp, byteCount))
 	{
 		fprintf(stderr, "POSIX munmap failed: %d", errno);

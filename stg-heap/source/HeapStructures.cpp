@@ -60,8 +60,13 @@ HeapNodeHeader* PageHeader::immediateFirstNode()
 }
 HeapNodeHeader* PageHeader::immediateLastNode()
 {
-	//TODO: fix this (perhaps?)
 	char* addr = ((((char*)this) + this->sizeBytes) - sizeof(HeapNodeFooter));
-	addr -= (((size_t)addr) % 16 == 8) ? 0 : 8;
+	addr -= (((size_t)addr) % 16 == 0) ? 0 : 8; //make sure the footer is 16 aligned, because the [hypothetical] next node is +8 bytes, and it's 
+												//body is +8 bytes, which means if this footer is 16 aligned, then the next body is also 16 aligned.
 	return ((HeapNodeFooter*)addr)->header;
+}
+
+bool PageHeader::isEntirePageFree() 
+{
+	return this->immediateFirstNode() == this->immediateLastNode() && this->immediateFirstNode()->isCurrentFree();
 }

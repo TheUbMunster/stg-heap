@@ -11,8 +11,8 @@ If you're reading this sentence, then this memory allocator still has some issue
 * Implicit page directory (sorted)
 * Linear address estimation for searching
 * Adjacent page coalescing (TODO)
-* Page freeing (with counter thrashing measures) (TODO)
-* Fully unit tested (TODO & report code coverage)
+* Page freeing (with counter thrashing measures) (TODO counter thrashing)
+* Fully unit tested (TODO & forward code coverage results to github maybe?)
 * Logarithmic linked list skipping (https://en.wikipedia.org/wiki/Skip_list) (TODO)
 
 # Behavior

@@ -482,6 +482,24 @@ void STGHeap::stg_free(void* p)
 	//swim/sink_or_swim() should take care of this automatically
 	//4. swim (if coalesce happened, swim in-place, if not, swim from the bottom of EFL).
 	//already done above.
+	if (page->isEntirePageFree())
+	{
+		if (page->prev != nullptr)
+			page->prev->next = page->next;
+		else //prev is null, should be head?
+		{
+			CHECK(pd_head != page, "A page in the page directory had a null prev, and yet this page was not the head of the pd!");
+			pd_head = page->next;
+		}
+		if (page->next != nullptr)
+			page->next->prev = page->prev;
+		else //next is null, should be tail?
+		{
+			CHECK(pd_tail != page, "A page in the page directory had a null next, and yet this page was not the tail of the pd!");
+			pd_tail = page->prev;
+		}
+		p_free(page, page->sizeBytes / p_size());
+	}
 }
 
 void STGHeap::heap_check()

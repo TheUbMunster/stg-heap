@@ -50,6 +50,14 @@ namespace
 		void* ptr2 = heap.stg_malloc(5 * multiplier); //will end up being pd_head
 		void* ptr3 = heap.stg_malloc(4 * multiplier); //will end up sinking to the middle from pd_head
 	}
+	TEST(SimpleTest, AllocAndFreeWholePage) //requires manual observation to fully ensure correct behavior
+	{
+		STGHeap heap{};
+		int* ptr1 = (int*)heap.stg_malloc(sizeof(int));
+		int* ptr2 = (int*)heap.stg_malloc(sizeof(int));
+		heap.stg_free(ptr1);
+		heap.stg_free(ptr2);
+	}
 	TEST(ComplexTests, SmallVariety)
 	{
 	    STGHeap heap{};
